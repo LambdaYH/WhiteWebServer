@@ -37,7 +37,6 @@ std::pair<HttpRequest::LINE_STATUS, std::size_t> HttpRequest::ParseLine(Buffer& 
     {
         ++line_len;
         temp = *begin;
-        LOG_DEBUG("%c", temp);
         if (temp == '\r')
         {
             if(begin + 1 == end)
