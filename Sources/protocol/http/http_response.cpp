@@ -51,17 +51,11 @@ const std::unordered_map<int, std::string> HttpResponse::kCodeStatus = {
     { 503, "Service Unavailable"},
 };
 
-const std::unordered_map<int, std::string> HttpResponse::kCodePath = {
-    { 400, "/400.html" },
-    { 403, "/403.html" },
-    { 404, "/404.html" },
-};
-
 HttpResponse::HttpResponse() :
 response_code_(-1),
 path_(""),
 src_dir_(""),
-is_keepalive_(false),
+is_keepalive_(true),
 file_address_(nullptr)
 {
 
@@ -91,14 +85,25 @@ void HttpResponse::Init(const std::string& src_dir, const std::string& path, con
 
 void HttpResponse::MakeResponse(Buffer& buff)
 {
-    LOG_DEBUG("%s", (src_dir_ + path_).c_str());
-    if (stat((src_dir_ + path_).c_str(), &file_stat_) < 0 || S_ISDIR(file_stat_.st_mode))
-        response_code_ = 404;
-    else if(!(file_stat_.st_mode & S_IROTH))    
-        response_code_ = 403;
-    else if(response_code_ == -1)
-        response_code_ = 200;
-    ErrorHtml();
+    switch(response_code_)
+    {
+        case 301: // moved permanetly
+        case 302: // found
+        case 303: // see other
+        case 304: // move modified
+        case 200:
+            LOG_DEBUG("Requested file: %s", (src_dir_ + path_).c_str());
+            if (stat((src_dir_ + path_).c_str(), &file_stat_) < 0 || S_ISDIR(file_stat_.st_mode))
+                response_code_ = 404;
+            else if(!(file_stat_.st_mode & S_IROTH))    
+                response_code_ = 403;
+            else if(response_code_ == -1)
+                response_code_ = 200;
+            break;
+        default:
+            break;
+    }
+    LOG_DEBUG("Response code: %d", response_code_);
     AddStateLine(buff);
     AddHeader(buff);
     AddContent(buff);
@@ -106,24 +111,41 @@ void HttpResponse::MakeResponse(Buffer& buff)
 
 void HttpResponse::ErrorContent(Buffer& buff, const std::string& message)
 {
-    std::string body{"<html><title>Error</title><body bgcolor=\"ffffff\">"};
     std::string status;
     if(kCodeStatus.count(response_code_))
         status = kCodeStatus.find(response_code_)->second;
     else
         status = "Bad Request";
-    body += std::to_string(response_code_) + " : " + status + "\n";
-    body += "<p>" + message + "</p>";
-    body += "<hr><em>WhiteWebServer ";
-    body += kServerVersion;
-    body += " </em></body></html>";
+    auto response_msg = std::to_string(response_code_) + " " + status;
+    std::string body{"<html><head><title>"
+                    + response_msg
+                    + "</title></head><body><center><h1>"
+                    + response_msg
+                    + "</h1><p>"
+                    + message
+                    + "</p></center><hr><em><center>"
+                    + "WhiteWebServer "
+                    + kServerVersion
+                    + "</center></em></body></html>"};
 
-    buff.Append("Content-Length: " + std::to_string(body.size()) + "\r\n\r\n");
+    AddCustomHeader(buff, "Content-Length", std::to_string(body.size()) + "\r\n");
     buff.Append(body);
 }
 
 void HttpResponse::AddContent(Buffer& buff)
 {
+    switch(response_code_)
+    {
+        case 301: // moved permanetly
+        case 302: // found
+        case 303: // see other
+        case 304: // move modified
+        case 200:
+            break;
+        default:
+            ErrorContent(buff, "Cannot open specific file");
+            return;
+    }
     int fd = open((src_dir_ + path_).c_str(), O_RDONLY);
     if(fd < 0)
     {
@@ -142,7 +164,7 @@ void HttpResponse::AddContent(Buffer& buff)
     }
     file_address_ = (char*)mmap_temp_pt;
     close(fd);
-    buff.Append("Content-Length: " + std::to_string(file_stat_.st_size) + "\r\n\r\n");
+    AddCustomHeader(buff, "Content-Length", std::to_string(file_stat_.st_size) + "\r\n");
 }
 
 

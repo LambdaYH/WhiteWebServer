@@ -7,7 +7,6 @@
 #include <sys/mman.h>
 #include <unordered_map>
 
-
 namespace white {
 
 class HttpResponse
@@ -16,7 +15,7 @@ public:
     HttpResponse();
     ~HttpResponse();
 
-    void Init(const std::string& src_dir, const std::string& path, const std::string& version = "1.1", bool is_keepalive = false, int response_code = -1);
+    void Init(const std::string& src_dir, const std::string& path, const std::string& version = "1.1", bool is_keepalive = true, int response_code = -1);
     /**
      * @brief Generate response information and put it into the buffer.
      * 
@@ -38,6 +37,8 @@ private:
     void AddStateLine(Buffer &buff);
     void AddHeader(Buffer &buff);
     void AddContent(Buffer &buff);
+
+    void AddCustomHeader(Buffer &buff, const std::string &header_fields, const std::string &value);
 
     /**
      * @brief If error happened, generate a page to display error.
@@ -95,18 +96,38 @@ inline void HttpResponse::AddStateLine(Buffer& buff)
 
 inline void HttpResponse::AddHeader(Buffer& buff)
 {
-    // add connection
-    if(!(version_ == "1.1" && is_keepalive_))
-    {
-        buff.Append("Connection: ");
-        // Detailed configuration can be added
-        if(is_keepalive_)
-            buff.Append("keep-alive\r\nkeep-alive: max=6, timeout=120");
-        else
-            buff.Append("close\r\n");
-    }
     // add content-type
-    buff.Append("Content-Type: " + GetFileType() + "\r\n");
+    switch(response_code_)
+    {
+        case 301: 
+            AddCustomHeader(buff, "Location", path_);
+        case 404:
+            is_keepalive_ = false;
+        case 302: // found
+        case 303: // see other
+        case 304: // move modified
+        case 200:
+            // add connection
+            if(!(version_ == "1.1" && is_keepalive_))
+            {
+                if(is_keepalive_)
+                {
+                    AddCustomHeader(buff, "Connection", "keep-alive");
+                    AddCustomHeader(buff, "keep-alive", "max=6, timeout=120");
+                }
+                else
+                    AddCustomHeader(buff, "Connection", "Close");
+            }
+            break;
+        default:
+            break;
+    }
+    AddCustomHeader(buff, "Server", "WhiteWebServer");
+}
+
+inline void HttpResponse::AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value)
+{
+    buff.Append(header_fields + ": " + value + "\r\n");
 }
 
 inline void HttpResponse::ErrorHtml()
@@ -120,6 +141,19 @@ inline void HttpResponse::ErrorHtml()
 
 inline std::string HttpResponse::GetFileType()
 {
+    switch(response_code_)
+    {
+        case 503:
+        case 500:
+        case 401:
+        case 403:
+        case 502:
+        case 400:
+        case 404:
+            return "text/html";
+        default:
+            break;
+    }
     auto idx = path_.find_last_of('.');
     if(idx == std::string::npos)
         return "text/plain";

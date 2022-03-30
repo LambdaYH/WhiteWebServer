@@ -104,6 +104,9 @@ HttpConn::PROCESS_STATE HttpConn::Process()
         case HttpRequest::HTTP_CODE::BAD_REQUEST:
             response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 400);
             break;
+        case HttpRequest::HTTP_CODE::MOVED_PERMANENTLY:
+            response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 301);
+            break;
         case HttpRequest::HTTP_CODE::NO_REQUEST:
             return PROCESS_STATE::PENDING;
             break;

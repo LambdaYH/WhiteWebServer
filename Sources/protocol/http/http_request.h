@@ -32,7 +32,8 @@ public:
         FORBIDDEN_REQUEST,
         FILE_REQUEST,
         INTERNAL_ERROR,
-        CLOASED_CONNECTION,
+        CLOSED_CONNECTION,
+        MOVED_PERMANENTLY,
     };
 
     enum class LINE_STATUS
@@ -70,7 +71,13 @@ private:
     bool ParseHeader(const Buffer& buff);
     bool ParseBody(const Buffer& buff);
 
-    void ParsePath();
+    /**
+     * @brief Return true is path changed.
+     * 
+     * @return true 
+     * @return false 
+     */
+    bool ParsePath();
     void ParsePost();
     void ParseFromUrlEncoded();
 
@@ -83,8 +90,6 @@ private:
     std::unordered_map<std::string, std::string> post_;
 
 private:
-    static const std::unordered_set<std::string> kDefaultHtml;
-    static const std::unordered_map<std::string, int> kDefaultHtmlTag;
     int ConvertHex(char ch);
 
     std::string &StrToupper(std::string &s);
@@ -95,7 +100,7 @@ inline bool HttpRequest::IsKeepAlive() const
     // enable by default in http1.1
     if(!header_.count("CONNECTION"))
         return version_ == "1.1";
-    return header_.find("CONNECTION")->second == "KEEP_ALIVE";
+    return header_.find("CONNECTION")->second == "KEEP-ALIVE";
 }
 
 inline const std::string &HttpRequest::Path() const

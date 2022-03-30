@@ -7,22 +7,6 @@
 namespace white
 {
 
-constexpr auto CRLF = "\r\n";
-
-const std::unordered_set<std::string> HttpRequest::kDefaultHtml{
-    "/index",
-    "/register",
-    "/login",
-    "/welcome",
-    "/video",
-    "/picture",
-};
-
-const std::unordered_map<std::string, int> HttpRequest::kDefaultHtmlTag{
-    {"/register.html", 0},
-    {"/login.html", 1},
-};
-
 HttpRequest::HttpRequest()
 {
     Init();
@@ -35,7 +19,8 @@ HttpRequest::~HttpRequest()
 
 void HttpRequest::Init()
 {
-    method_ = path_ = version_ = body_ = "";
+    method_ = path_ = body_ = "";
+    version_ = "1.1";
     state_ = PARSE_STATE::REQUEST_LINE;
     header_.clear();
     post_.clear();
@@ -80,20 +65,20 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
     if(buff.ReadableBytes() == 0)
         return HTTP_CODE::NO_REQUEST;
     LINE_STATUS line_state;
+    bool is_redirected = false;
     std::size_t line_len;
     while (buff.ReadableBytes() && state_ != PARSE_STATE::FINISH)
     {
         std::tie(line_state, line_len) = ParseLine(buff);
         if(line_state != LINE_STATUS::LINE_OK)
             return HTTP_CODE::NO_REQUEST;
-        auto begin = buff.ReadBegin();
-        LOG_DEBUG("got a new line: %s", begin);
+        LOG_DEBUG("got a new line: %s", buff.ReadBegin());
         switch (state_)
         {
             case PARSE_STATE::REQUEST_LINE:
                 if(!ParseRequestLine(buff))
                     return HTTP_CODE::BAD_REQUEST;
-                ParsePath();
+                is_redirected = ParsePath();
                 break;
             case PARSE_STATE::HEADERS:
                 if(!ParseHeader(buff))
@@ -105,21 +90,24 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
                 if(!ParseBody(buff))
                     return HTTP_CODE::NO_REQUEST;
                 break;
-            case PARSE_STATE::FINISH:
-                return HTTP_CODE::GET_REQUEST;
             default:
                 break;
         }
         buff.Retrieve(line_len); // this line has been parsed
     }
     LOG_DEBUG("method: [%s]\npath: [%s]\nversion: [%s]", method_.c_str(), path_.c_str(), version_.c_str());
-    return HTTP_CODE::GET_REQUEST;
+    // state_ == finish
+    return is_redirected ? HTTP_CODE::MOVED_PERMANENTLY : HTTP_CODE::GET_REQUEST;
 }
 
-void HttpRequest::ParsePath()
+bool HttpRequest::ParsePath()
 {
     if(path_ == "/")
+    {
         path_ = "/index.html";
+        return true;
+    }
+    return false;
 }
 
 bool HttpRequest::ParseRequestLine(Buffer& buff)
@@ -136,7 +124,6 @@ bool HttpRequest::ParseRequestLine(Buffer& buff)
         method_ = "POST";
     else
         return false;
-
     url += strspn(url, " \t"); // skip space
     auto version = strpbrk(url, " \t");
     if(!version)
