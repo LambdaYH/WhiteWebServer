@@ -26,7 +26,7 @@ public:
 
 private:
     bool InitSocket();
-    void InitEventMode(); // default et
+    void InitEventMode(); // default: et
     void AddClient(int fd, sockaddr_in addr);
 
     void DealListen();

@@ -99,10 +99,12 @@ inline void HttpResponse::AddHeader(Buffer& buff)
     // add content-type
     switch(response_code_)
     {
-        case 301: 
-            AddCustomHeader(buff, "Location", path_);
         case 404:
             is_keepalive_ = false;
+            AddCustomHeader(buff, "Connection", "Close");
+            break;
+        case 301:
+            AddCustomHeader(buff, "Location", path_);
         case 302: // found
         case 303: // see other
         case 304: // move modified

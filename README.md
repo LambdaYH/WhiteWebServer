@@ -8,7 +8,7 @@ Linux环境下的轻量级webserver
 
 ## Bugs to fix
 - [ ] 处理好keep-alive
-- [ ] 对不完整请求进行完善的处理
+- [x] 对不完整请求进行完善的处理
 
 ## Todo
 - [ ] 异步日志
