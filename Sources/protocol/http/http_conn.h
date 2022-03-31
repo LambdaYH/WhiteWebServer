@@ -43,6 +43,14 @@ public:
 
     bool IsKeepAlive() const;
 
+    /**
+     * @brief Returns true if connected.
+     * 
+     * @return true 
+     * @return false 
+     */
+    bool IsConnected() const;
+
 public:
     static const char* web_root;
     static std::atomic_size_t user_count;
@@ -91,6 +99,11 @@ inline int HttpConn::PendingWriteBytes() const
 inline bool HttpConn::IsKeepAlive() const
 {
     return request_.IsKeepAlive();
+}
+
+inline bool HttpConn::IsConnected() const
+{
+    return !is_close_;
 }
 
 } // namespace white

@@ -21,6 +21,10 @@
 #include <thread>
 #include <unistd.h>
 #include <mutex>
+#include <signal.h>
+
+std::mutex mutex;
+std::mutex str_mutex;
 
 void SetNoBlock(int fd)
 {
@@ -28,40 +32,61 @@ void SetNoBlock(int fd)
     fcntl(fd, F_SETFL, old_option | O_NONBLOCK);
 }
 
-std::mutex mutex;
+void AddFd(int epoll_fd, int fd, int ev)
+{
+    std::lock_guard<std::mutex> locker(mutex);
+    epoll_event event;
+    event.data.fd = fd;
+    event.events = ev | EPOLLRDHUP | EPOLLET;
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
+    SetNoBlock(fd);
+}
 
-// 还是有点逻辑问题，不过勉强能测试出对不完整请求具有完善的处理能力
-void ThreadFunction(std::string *new_str, int epoll_fd, int write_fd, bool* writing)
+void ModFd(int epoll_fd, int fd, int ev)
+{
+    std::lock_guard<std::mutex> locker(mutex);
+    epoll_event event;
+    event.data.fd = fd;
+    event.events = ev | EPOLLRDHUP | EPOLLET;
+    epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
+}
+
+void DelFd(int epoll_fd, int fd)
+{
+    std::lock_guard<std::mutex> locker(mutex);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, 0);
+    close(fd);
+}
+
+void ParseString(std::string &new_str, const std::string &old_str)
+{
+    std::lock_guard<std::mutex> locker(str_mutex);
+    new_str.clear();
+    for (int i = 0, sz = old_str.size(); i < sz; ++i)
+    {
+        if(old_str[i] == '\\' && (i < sz - 1 && old_str[i + 1] == 'r'))
+        {
+            new_str += '\r';
+            ++i;
+        }
+        else if(old_str[i] == '\\' && (i < sz - 1 && old_str[i + 1] == 'n'))
+        {
+            new_str += '\n';
+            ++i;
+        }
+        else
+            new_str += old_str[i];
+    }
+}
+
+void ThreadFunction(std::string *new_str, int epoll_fd, int *write_fd)
 {
     while(true)
     {
-        while(*writing){}
-        std::cout << "message to send: " << std::endl;
         std::string in;
         getline(std::cin, in);
-        new_str->clear();
-        for (int i = 0, sz = in.size(); i < sz; ++i)
-        {
-            if(in[i] == '\\' && (i < sz - 1 && in[i + 1] == 'r'))
-            {
-                *new_str += '\r';
-                ++i;
-            }
-            else if(in[i] == '\\' && (i < sz - 1 && in[i + 1] == 'n'))
-            {
-                *new_str += '\n';
-                ++i;
-            }
-            else
-                *new_str += in[i];
-        }
-        epoll_event event_write;
-        event_write.data.fd = write_fd;
-        event_write.events = EPOLLOUT | EPOLLRDHUP;
-        char buffer[8096]{};
-        mutex.lock();
-        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, write_fd, &event_write);
-        mutex.unlock();
+        ParseString(*new_str, in);
+        ModFd(epoll_fd, *write_fd, EPOLLOUT);
     }
 }
 
@@ -89,52 +114,70 @@ int main(int argc, char* argv[])
 
     int epoll_fd = epoll_create(128);
     epoll_event events[256];
-    epoll_event event;
-    event.data.fd = serv_fd;
-    event.events = EPOLLIN | EPOLLRDHUP;
     char buffer[8096]{};
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, serv_fd, &event);
+    AddFd(epoll_fd, serv_fd, EPOLLIN);
     std::string new_str;
-    bool writing = false;
-    std::thread{ThreadFunction, &new_str, epoll_fd, serv_fd, &writing}.detach();
+    std::thread{ThreadFunction, &new_str, epoll_fd, &serv_fd}.detach();
+
+    signal(SIGPIPE, SIG_IGN); // Prevent accidental close connection when writing to a closed socket
+
     while (true)
     {
         int num = epoll_wait(epoll_fd, events, 256, -1);
         for (int i = 0; i < num; ++i)
         {
+            int sock_fd = events[i].data.fd;
             if(events[i].events & EPOLLIN)
             {
-                if(recv(serv_fd, buffer, 8095, 0) == 0)
-                    break;
-                std::cout << "Message from server: " << std::endl;
+                int cur_len = 0;
+                int recv_len = 0;
+                while((cur_len = recv(sock_fd, buffer + recv_len, 8095, 0)) > 0)
+                    recv_len += cur_len;
+                buffer[recv_len + cur_len] = '\0';
                 std::cout << buffer << std::endl;
-                bzero(buffer, sizeof(buffer));
             }else if(events[i].events & EPOLLOUT)
             {
-                int total_len = new_str.size();
-                int sent_len = 0;
-                writing = true;
-                while (total_len > 0)
                 {
-                    int len = send(serv_fd,  new_str.c_str() + sent_len, total_len, 0);
-                    if(len == -1)
+                    std::lock_guard<std::mutex> locker(str_mutex);
+                    int total_len = new_str.size();
+                    int sent_len = 0;
+                    while (total_len > 0)
                     {
-                        std::cerr << "Error: send()" << std::endl;
-                        break;
+                        int len = send(sock_fd,  new_str.c_str() + sent_len, total_len - sent_len, 0);
+                        if(len <= 0)
+                        {
+                            std::cout << len << std::endl;
+                            if(errno != EAGAIN && errno != EWOULDBLOCK)
+                            {
+                                DelFd(epoll_fd, serv_fd);
+                                serv_fd = socket(AF_INET, SOCK_STREAM, 0);
+                                if (connect(serv_fd, (sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+                                {
+                                    std::cerr << "Error: connect() : " << strerror(errno) << std::endl;
+                                    exit(1);
+                                }
+                                AddFd(epoll_fd, serv_fd, EPOLLIN);
+                                std::cout << "connection re-established" << std::endl;
+                            }
+                            break;
+                        }
+                        total_len -= len;
+                        sent_len += len;
                     }
-                    total_len -= len;
-                    sent_len += len;
                 }
-                event.data.fd = serv_fd;
-                event.events = EPOLLIN | EPOLLRDHUP;
-                mutex.lock();
-                epoll_ctl(epoll_fd, EPOLL_CTL_MOD, serv_fd, &event);
-                mutex.unlock();
-                writing = false;
+                ModFd(epoll_fd, serv_fd, EPOLLIN);
             }else
             {
-                close(serv_fd);
-                return 0;
+                std::cout << "connection closed" << std::endl;
+                DelFd(epoll_fd, serv_fd);
+                serv_fd = socket(AF_INET, SOCK_STREAM, 0);
+                if (connect(serv_fd, (sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+                {
+                    std::cerr << "Error: connect() : " << strerror(errno) << std::endl;
+                    exit(1);
+                }
+                AddFd(epoll_fd, serv_fd, EPOLLIN);
+                std::cout << "connection re-established" << std::endl;
             }
         }
     }
