@@ -14,6 +14,9 @@ namespace white {
 
 class HttpRequest
 {
+
+friend class HttpConn;
+
 public:
     enum class PARSE_STATE
     {
@@ -43,7 +46,7 @@ public:
         LINE_OPEN,
     };
 
-public:
+protected:
     HttpRequest();
     ~HttpRequest();
 

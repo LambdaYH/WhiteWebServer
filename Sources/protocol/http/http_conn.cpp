@@ -86,6 +86,7 @@ void HttpConn::Close()
         is_close_ = true;
         --user_count;
         close(fd_);
+        request_.Init();
         LOG_INFO("Client[%d](%s:%d) disconnected, current userCount: %d", fd_, GetIP(), GetPort(), user_count.load());
     }
 }

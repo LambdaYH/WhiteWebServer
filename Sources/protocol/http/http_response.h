@@ -11,7 +11,10 @@ namespace white {
 
 class HttpResponse
 {
-public:
+
+friend class HttpConn;
+
+protected:
     HttpResponse();
     ~HttpResponse();
 

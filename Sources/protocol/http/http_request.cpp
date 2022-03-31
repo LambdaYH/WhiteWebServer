@@ -77,12 +77,18 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
         {
             case PARSE_STATE::REQUEST_LINE:
                 if(!ParseRequestLine(buff))
+                {
+                    state_ = PARSE_STATE::FINISH;
                     return HTTP_CODE::BAD_REQUEST;
+                }
                 is_redirected = ParsePath();
                 break;
             case PARSE_STATE::HEADERS:
                 if(!ParseHeader(buff))
+                {
+                    state_ = PARSE_STATE::FINISH;
                     return HTTP_CODE::BAD_REQUEST;
+                }
                 break;
             case PARSE_STATE::BODY:
                 if(!ParseBody(buff))
