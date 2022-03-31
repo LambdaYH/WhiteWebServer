@@ -102,7 +102,7 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
     // state_ == finish
     if(state_ == PARSE_STATE::FINISH)
     {
-        LOG_DEBUG("method: [%s]\npath: [%s]\nversion: [%s]", method_.c_str(), path_.c_str(), version_.c_str());
+        LOG_DEBUG("method: [%s] path: [%s] version: [%s]", method_.c_str(), path_.c_str(), version_.c_str());
         return is_redirected ? HTTP_CODE::MOVED_PERMANENTLY : HTTP_CODE::GET_REQUEST;
     }
     return HTTP_CODE::NO_REQUEST;
@@ -163,9 +163,9 @@ bool HttpRequest::ParseRequestLine(Buffer& buff)
     return true;
 }
 
-bool HttpRequest::ParseHeader(const Buffer& buff)
+bool HttpRequest::ParseHeader(Buffer& buff)
 {
-    auto line_begin = buff.ReadBeginConst();
+    auto line_begin = buff.ReadBegin();
     if (*line_begin == '\0')
     {
         if(header_.count("CONTENT-LENGTH"))
@@ -174,16 +174,15 @@ bool HttpRequest::ParseHeader(const Buffer& buff)
             state_ = PARSE_STATE::FINISH;
         return true;
     }
-    std::regex pattern("^([^:]*): ?(.*)$");
-    std::smatch match_result;
-    std::string line_str(line_begin);
-    if (std::regex_match(line_str, match_result, pattern))
-    {
-        std::string upper_str_1(match_result[1]);
-        std::string upper_str_2(match_result[2]);
-        header_[upper_str_1] = upper_str_2;
-    }else
+    char* value = strpbrk(line_begin, ": \t");
+    if(!value)
         return false;
+    *value++ = '\0';
+    value += strspn(value, ": \t");
+    if(!value)
+        return false;
+    std::string key(line_begin);
+    header_[StrToupper(key)] = std::string(value);
     return true;
 }
 

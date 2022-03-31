@@ -72,7 +72,7 @@ private:
     std::pair<LINE_STATUS, std::size_t> ParseLine(Buffer& buff);
 
     bool ParseRequestLine(Buffer& buff);
-    bool ParseHeader(const Buffer& buff);
+    bool ParseHeader(Buffer& buff);
     bool ParseBody(const Buffer& buff);
 
     /**
@@ -109,7 +109,7 @@ inline bool HttpRequest::IsKeepAlive() const
     // enable by default in http1.1
     if(!header_.count("CONNECTION"))
         return version_ == "1.1";
-    return header_.find("CONNECTION")->second == "KEEP-ALIVE";
+    return strcasecmp(header_.find("CONNECTION")->second.c_str(), "KEEP-ALIVE") == 0;
 }
 
 inline const std::string &HttpRequest::Path() const
@@ -139,7 +139,7 @@ inline std::string HttpRequest::GetPost(const char* key) const
     return GetPost(std::string(key));
 }
 
-inline std::string& StrToupper(std::string& s)
+inline std::string& HttpRequest::StrToupper(std::string& s)
 {
     std::transform(s.begin(), s.end(), s.begin(),
                     [](unsigned char c){ return std::toupper(c); }

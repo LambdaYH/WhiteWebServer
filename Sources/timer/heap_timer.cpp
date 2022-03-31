@@ -36,12 +36,12 @@ void HeapTimer::AddTimer(int fd, int timeout, const TimeoutCallback& cb)
 
 void HeapTimer::AdjustTimer(int fd, int timeout)
 {
-        std::size_t exist_node{fd_heap_map_[fd]};
-        heap_[exist_node].expires = Clock::now() + Ms{timeout};
-        if (Check_up_or_down(exist_node))
-            PercolateUp(exist_node);
-        else
-            PercolateDown(exist_node);
+    std::size_t exist_node{fd_heap_map_[fd]};
+    heap_[exist_node].expires = Clock::now() + Ms{timeout};
+    if (Check_up_or_down(exist_node))
+        PercolateUp(exist_node);
+    else
+        PercolateDown(exist_node);
 }
 
 void HeapTimer::DoRightNow(int fd)

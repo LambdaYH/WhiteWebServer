@@ -45,7 +45,6 @@ private:
 
 private:
     static const int kMaxFd;
-    static const int kMaxEventNum;
 
 private:
 

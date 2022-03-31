@@ -109,7 +109,7 @@ void HttpResponse::MakeResponse(Buffer& buff)
     AddContent(buff);
 }
 
-void HttpResponse::ErrorContent(Buffer& buff, const std::string& message)
+void HttpResponse::GenerateErrorContent(Buffer& buff, const std::string& message)
 {
     std::string status;
     if(kCodeStatus.count(response_code_))
@@ -139,18 +139,18 @@ void HttpResponse::AddContent(Buffer& buff)
         case 301: // moved permanetly
         case 302: // found
         case 303: // see other
-        case 304: // move modified
+        case 304: // not modified
         case 200:
             break;
         default:
-            ErrorContent(buff, "Cannot open specific file");
+            GenerateErrorContent(buff, "Cannot open specific file");
             return;
     }
     int fd = open((src_dir_ + path_).c_str(), O_RDONLY);
     if(fd < 0)
     {
         response_code_ = 500;
-        ErrorContent(buff, "Cannot open specific file");
+        GenerateErrorContent(buff, "Cannot open specific file");
         return;
     }
 
@@ -158,7 +158,7 @@ void HttpResponse::AddContent(Buffer& buff)
     if(mmap_temp_pt == MAP_FAILED)
     {
         response_code_ = 500;
-        ErrorContent(buff, "Cannot map specific file");
+        GenerateErrorContent(buff, "Cannot map specific file");
         close(fd);
         return;
     }

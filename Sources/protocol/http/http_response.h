@@ -49,13 +49,13 @@ private:
      * @param buff 
      * @param message error message
      */
-    void ErrorContent(Buffer &buff, const std::string &message);
+    void GenerateErrorContent(Buffer &buff, const std::string &message);
 
     /**
      * @brief Select the html file corresponding to the response code
      * 
      */
-    void ErrorHtml();
+    void GenerateErrorHtml();
     std::string GetFileType();
     void Unmap();
 
@@ -127,6 +127,12 @@ inline void HttpResponse::AddHeader(Buffer& buff)
         default:
             break;
     }
+
+    AddCustomHeader(buff, "Content-type", GetFileType());
+    if(version_ == "1.1")
+    {
+        AddCustomHeader(buff, "Cache-Control", "max-age=31536000");
+    }
     AddCustomHeader(buff, "Server", "WhiteWebServer");
 }
 
@@ -135,7 +141,7 @@ inline void HttpResponse::AddCustomHeader(Buffer &buff, const std::string& heade
     buff.Append(header_fields + ": " + value + "\r\n");
 }
 
-inline void HttpResponse::ErrorHtml()
+inline void HttpResponse::GenerateErrorHtml()
 {
     if(kCodePath.count(response_code_))
     {

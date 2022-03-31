@@ -10,7 +10,6 @@ namespace white
 {
 
 const int Server::kMaxFd = 65536;
-const int Server::kMaxEventNum = 10000;
 
 Server::Server(const char *address, int port, const char *web_root, int timeout, bool enable_linger, const char *log_dir) : 
 port_(port),
@@ -49,7 +48,7 @@ epoll_(Epoll())
     else
     {
         LOG_INFO("========== Server Init successful ==========");
-        LOG_INFO("Port: %d\nlog path: %s\nweb root: %s", port_, log_dir, HttpConn::web_root);
+        LOG_INFO("[Port] %d [Log path] %s [web root] %s", port_, log_dir, HttpConn::web_root);
     }
 }
 
@@ -65,7 +64,7 @@ void Server::Run()
     int time_epoll = -1;
     if(!is_close_)
     {
-        LOG_INFO("========== Server running ==========");
+        LOG_INFO("==========    Server   running    ==========");
     }
     while(!is_close_)
     {
@@ -228,8 +227,6 @@ void Server::OnWrite(HttpConn &client)
     if (client.PendingWriteBytes() == 0)
     {
         // Todo: handling keep-alive
-        CloseConn(client);
-        return;
         if (client.IsKeepAlive())
         {
             // wait for the next in

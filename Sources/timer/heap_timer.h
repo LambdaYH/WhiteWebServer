@@ -111,8 +111,8 @@ inline void HeapTimer::Clear()
 inline bool HeapTimer::Check_up_or_down(std::size_t index)
 {
     std::size_t sz{heap_.size()}, child_node{index * 2 + 1};
-    if ((child_node < sz && heap_[index] > heap_[child_node])
-    || (child_node + 1 < sz && heap_[index] > heap_[child_node + 1]))
+    if ((child_node < sz && heap_[index] < heap_[child_node])
+    || (child_node + 1 < sz && heap_[index] < heap_[child_node + 1]))
         return false;
     return true;
 }

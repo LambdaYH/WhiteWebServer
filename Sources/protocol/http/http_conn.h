@@ -35,7 +35,6 @@ public:
     int GetFd() const;
     int GetPort() const;
     const char* GetIP() const;
-    const sockaddr_in& GetAddr() const;
 
     PROCESS_STATE Process();
 
@@ -84,11 +83,6 @@ inline int HttpConn::GetPort() const
 inline const char* HttpConn::GetIP() const
 {
     return inet_ntoa(address_.sin_addr);
-}
-
-inline const sockaddr_in& HttpConn::GetAddr() const
-{
-    return address_;
 }
 
 inline int HttpConn::PendingWriteBytes() const
