@@ -56,6 +56,7 @@ public:
     std::string GetPost(const std::string& key) const;
     std::string GetPost(const char* key) const;
 
+    bool IsFinish() const;
     bool IsKeepAlive() const;
 
 private:
@@ -94,6 +95,11 @@ private:
 
     std::string &StrToupper(std::string &s);
 };
+
+inline bool HttpRequest::IsFinish() const
+{
+    return state_ == PARSE_STATE::FINISH;
+}
 
 inline bool HttpRequest::IsKeepAlive() const
 {

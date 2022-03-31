@@ -92,9 +92,10 @@ void HttpConn::Close()
 
 HttpConn::PROCESS_STATE HttpConn::Process()
 {
-    request_.Init();
+    if(request_.IsFinish())
+        request_.Init();
     if(read_buff_.ReadableBytes() == 0)
-        return PROCESS_STATE::FAIL;
+        return PROCESS_STATE::PENDING;
     auto request_parse_result = request_.Parse(read_buff_);
     switch(request_parse_result)
     {

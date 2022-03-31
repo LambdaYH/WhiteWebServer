@@ -67,7 +67,7 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
     LINE_STATUS line_state;
     bool is_redirected = false;
     std::size_t line_len;
-    while (buff.ReadableBytes() && state_ != PARSE_STATE::FINISH)
+    while (buff.ReadableBytes())
     {
         std::tie(line_state, line_len) = ParseLine(buff);
         if(line_state != LINE_STATUS::LINE_OK)
@@ -83,8 +83,6 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
             case PARSE_STATE::HEADERS:
                 if(!ParseHeader(buff))
                     return HTTP_CODE::BAD_REQUEST;
-                if (!header_.count("CONTENT-LENGTH") || header_.find("CONTENT-LENGTH")->second == "0")
-                    state_ = PARSE_STATE::FINISH;
                 break;
             case PARSE_STATE::BODY:
                 if(!ParseBody(buff))
@@ -95,9 +93,13 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
         }
         buff.Retrieve(line_len); // this line has been parsed
     }
-    LOG_DEBUG("method: [%s]\npath: [%s]\nversion: [%s]", method_.c_str(), path_.c_str(), version_.c_str());
     // state_ == finish
-    return is_redirected ? HTTP_CODE::MOVED_PERMANENTLY : HTTP_CODE::GET_REQUEST;
+    if(state_ == PARSE_STATE::FINISH)
+    {
+        LOG_DEBUG("method: [%s]\npath: [%s]\nversion: [%s]", method_.c_str(), path_.c_str(), version_.c_str());
+        return is_redirected ? HTTP_CODE::MOVED_PERMANENTLY : HTTP_CODE::GET_REQUEST;
+    }
+    return HTTP_CODE::NO_REQUEST;
 }
 
 bool HttpRequest::ParsePath()
@@ -160,7 +162,10 @@ bool HttpRequest::ParseHeader(const Buffer& buff)
     auto line_begin = buff.ReadBeginConst();
     if (*line_begin == '\0')
     {
-        state_ = PARSE_STATE::BODY;
+        if(header_.count("CONTENT-LENGTH"))
+            state_ = PARSE_STATE::BODY;
+        else
+            state_ = PARSE_STATE::FINISH;
         return true;
     }
     std::regex pattern("^([^:]*): ?(.*)$");
