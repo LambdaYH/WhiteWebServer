@@ -9,7 +9,7 @@ Linux环境下的轻量级webserver
 ## Bugs to fix
 - [ ] 处理好keep-alive
 - [x] 对不完整请求进行完善的处理
-- [ ] 请求标头没有读取完整
+- [x] 请求标头没有读取完整
 
 ## Todo
 - [ ] 异步日志
