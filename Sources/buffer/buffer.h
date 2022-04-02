@@ -1,3 +1,8 @@
+/*
+ * @Author       : mark
+ * @Date         : 2020-06-25
+ * @copyleft Apache 2.0
+ */ 
 #ifndef WHITEWEBSERVER_BUFFER_BUFFER_H_
 #define WHITEWEBSERVER_BUFFER_BUFFER_H_
 

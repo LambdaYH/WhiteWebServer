@@ -1,3 +1,8 @@
+/*
+ * @Author       : mark
+ * @Date         : 2020-06-25
+ * @copyleft Apache 2.0
+ */ 
 #ifndef WHITEWEBSERVER_POOL_THREADPOOL_H_
 #define WHITEWEBSERVER_POOL_THREADPOOL_H_
 

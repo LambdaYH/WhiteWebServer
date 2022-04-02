@@ -1,15 +1,3 @@
-/**
- * @file send incompelete request
- * @author cinte (cinte@cinte.cc)
- * @brief 
- * @version 0.1
- * @date 2022-03-30
- * 
- * @copyright Copyright (c) 2022
- * 
- */
-
-
 #include <iostream>
 #include <sys/socket.h>
 #include <arpa/inet.h>

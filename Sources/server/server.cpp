@@ -1,3 +1,8 @@
+/*
+ * @Author       : mark
+ * @Date         : 2020-06-25
+ * @copyleft Apache 2.0
+ */ 
 #include "server/server.h"
 
 #include <cstring>
@@ -21,7 +26,7 @@ timer_(new HeapTimer()),
 pool_(new ThreadPool()),
 epoll_(Epoll())
 {
-    Logger::GetInstance().Init(log_dir);
+    LOG_INIT(log_dir, kLogLevelDebug);
     bzero(&address_, sizeof(address_));
     if (strcasecmp(address, "0.0.0.0") == 0 || strcasecmp(address, "*") == 0)
         address_.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -48,7 +53,7 @@ epoll_(Epoll())
     else
     {
         LOG_INFO("========== Server Init successful ==========");
-        LOG_INFO("[Port] %d [Log path] %s [web root] %s", port_, log_dir, HttpConn::web_root);
+        LOG_INFO("[Port] ", port_, "[Log path] ", log_dir, "[web root] ", HttpConn::web_root);
     }
 }
 
@@ -85,7 +90,7 @@ void Server::Run()
                 DealWrite(users_[cur_event_fd]);
             else
             {
-                LOG_ERROR("Unknown event happened: %d", events);
+                LOG_ERROR("Unknown event happened: ", events);
             }
         }
     }
@@ -96,7 +101,7 @@ bool Server::InitSocket()
     listenfd_ = socket(AF_INET, SOCK_STREAM, 0);
     if(listenfd_ < 0)
     {
-        LOG_ERROR("Fail to create listen socket: %s", strerror(errno));
+        LOG_ERROR("Fail to create listen socket: ", strerror(errno));
         return false;
     }
 
@@ -110,7 +115,7 @@ bool Server::InitSocket()
     if(setsockopt(listenfd_, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger)) < 0)
     {
         close(listenfd_);
-        LOG_ERROR("set Linger option error: %s", strerror(errno));
+        LOG_ERROR("set Linger option error: ", strerror(errno));
         return false;
     }
 
@@ -118,33 +123,32 @@ bool Server::InitSocket()
     int opt_reuse = 1;
     if (setsockopt(listenfd_, SOL_SOCKET, SO_REUSEADDR, &opt_reuse, sizeof(opt_reuse)) < 0)
     {
-        LOG_ERROR("set reuse addr error: %s", strerror(errno));
+        LOG_ERROR("set reuse addr error: ", strerror(errno));
         close(listenfd_);
         return false;
     }
 
     if(bind(listenfd_, (sockaddr*)&address_, sizeof(address_)) < 0)
     {
-        LOG_ERROR("Bind error: %s", strerror(errno));
+        LOG_ERROR("Bind error: ", strerror(errno));
         close(listenfd_);
         return false;
     }
 
     if(listen(listenfd_, 5) < 0)
     {
-        LOG_ERROR("listen error: %s", strerror(errno));
+        LOG_ERROR("listen error: ", strerror(errno));
         close(listenfd_);
         return false;
     }
 
     if(!epoll_.AddFd(listenfd_, listen_event_ | EPOLLIN))
     {
-        LOG_ERROR("Epoll add listenfd error: %s", strerror(errno));
+        LOG_ERROR("Epoll add listenfd error: ", strerror(errno));
         close(listenfd_);
         return false;
     }
     SetNoBlock(listenfd_);
-    LOG_INFO("Server port: %d", port_);
     return true;
 }
 

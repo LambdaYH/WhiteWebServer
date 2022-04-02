@@ -1,3 +1,8 @@
+/*
+ * @Author       : mark
+ * @Date         : 2020-06-25
+ * @copyleft Apache 2.0
+ */ 
 #include "protocol/http/http_conn.h"
 #include "logger/logger.h"
 
@@ -26,7 +31,7 @@ void HttpConn::Init(int fd, const sockaddr_in& addr)
     write_buff_.Clear();
     read_buff_.Clear();
     is_close_ = false;
-    LOG_INFO("Client[%d](%s:%d) connected, current userCount: %d", fd_, GetIP(), GetPort(), user_count.load());
+    LOG_INFO("Client[", fd_, "](",GetIP(), GetPort(), ") connected, current userCount: ", user_count.load());
 }
 
 // response is small enough for a buffer to read
@@ -87,7 +92,7 @@ void HttpConn::Close()
         --user_count;
         close(fd_);
         request_.Init();
-        LOG_INFO("Client[%d](%s:%d) disconnected, current userCount: %d", fd_, GetIP(), GetPort(), user_count.load());
+        LOG_INFO("Client[", fd_, "](",GetIP(), GetPort(), ") disconnected, current userCount: ", user_count.load());
     }
 }
 
@@ -125,7 +130,7 @@ HttpConn::PROCESS_STATE HttpConn::Process()
         iov_[1].iov_len = response_.FileSize();
         iov_cnt_ = 2;
     }
-    LOG_DEBUG("File: %d to be writing", response_.FileSize());
+    LOG_DEBUG("File: ", response_.FileSize(), " to be writing");
     return PROCESS_STATE::FINISH;
 }
 

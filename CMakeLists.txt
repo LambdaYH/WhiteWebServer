@@ -9,8 +9,8 @@ find_package(Threads REQUIRED)
 include_directories(Sources)
 
 aux_source_directory(Sources/logger LOGGER_SRC)
-aux_source_directory(Sources/thread_Pool THREADPOOL_SRC)
-aux_source_directory(Sources/protocol/http HTTP_SRC)
+aux_source_directory(Sources/pool POOL_SRC)
+aux_source_directory(Sources/protocol/http PROTOCOL_HTTP_SRC)
 aux_source_directory(Sources/timer TIMER_SRC)
 aux_source_directory(Sources/server SERVER_SRC)
 aux_source_directory(Sources/epoll EPOLL_SRC)
@@ -18,9 +18,9 @@ aux_source_directory(Sources/buffer BUFFER_SRC)
 
 add_executable(${PROJECT_NAME} 
                 Sources/main.cpp 
-                ${THREADPOOL_SRC} 
-                ${HTTP_SRC} 
-                ${LOGGER_SRC} 
+                ${POOL_SRC} 
+                ${PROTOCOL_HTTP_SRC} 
+                ${LOGGER_SRC}
                 ${TIMER_SRC}
                 ${SERVER_SRC}
                 ${EPOLL_SRC}

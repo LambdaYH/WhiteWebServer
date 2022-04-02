@@ -1,3 +1,8 @@
+/*
+ * @Author       : mark
+ * @Date         : 2020-06-25
+ * @copyleft Apache 2.0
+ */ 
 #ifndef WHITEWEBSERVER_PROTOCOL_HTTP_HTTP_CONN_H
 #define WHITEWEBSERVER_PROTOCOL_HTTP_HTTP_CONN_H
 

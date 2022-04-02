@@ -1,8 +1,12 @@
+/*
+ * @Author       : mark
+ * @Date         : 2020-06-25
+ * @copyleft Apache 2.0
+ */ 
 #include <protocol/http/http_request.h>
 
 #include <tuple>
 #include <cctype>
-#include <regex>
 
 namespace white
 {
@@ -72,7 +76,7 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
         std::tie(line_state, line_len) = ParseLine(buff);
         if(line_state != LINE_STATUS::LINE_OK)
             return HTTP_CODE::NO_REQUEST;
-        LOG_DEBUG("got a new line: %s", buff.ReadBegin());
+        LOG_DEBUG("got a new line: ", buff.ReadBegin());
         switch (state_)
         {
             case PARSE_STATE::REQUEST_LINE:
@@ -102,7 +106,7 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
     // state_ == finish
     if(state_ == PARSE_STATE::FINISH)
     {
-        LOG_DEBUG("method: [%s] path: [%s] version: [%s]", method_.c_str(), path_.c_str(), version_.c_str());
+        LOG_DEBUG("method: [", method_.c_str(), "] path: [", path_.c_str(), "] version: [", version_.c_str(), "]");
         return is_redirected ? HTTP_CODE::MOVED_PERMANENTLY : HTTP_CODE::GET_REQUEST;
     }
     return HTTP_CODE::NO_REQUEST;

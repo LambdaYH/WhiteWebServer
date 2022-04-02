@@ -1,3 +1,8 @@
+/*
+ * @Author       : mark
+ * @Date         : 2020-06-25
+ * @copyleft Apache 2.0
+ */ 
 #include "protocol/http/http_response.h"
 
 #include <string>
@@ -92,7 +97,7 @@ void HttpResponse::MakeResponse(Buffer& buff)
         case 303: // see other
         case 304: // move modified
         case 200:
-            LOG_DEBUG("Requested file: %s", (src_dir_ + path_).c_str());
+            LOG_DEBUG("Requested file: ", (src_dir_ + path_).c_str());
             if (stat((src_dir_ + path_).c_str(), &file_stat_) < 0 || S_ISDIR(file_stat_.st_mode))
                 response_code_ = 404;
             else if(!(file_stat_.st_mode & S_IROTH))    
@@ -103,7 +108,7 @@ void HttpResponse::MakeResponse(Buffer& buff)
         default:
             break;
     }
-    LOG_DEBUG("Response code: %d", response_code_);
+    LOG_DEBUG("Response code: ", response_code_);
     AddStateLine(buff);
     AddHeader(buff);
     AddContent(buff);
