@@ -10,7 +10,7 @@
 
 namespace white {
 
-const char* HttpConn::web_root = nullptr;
+std::string HttpConn::web_root = "";
 std::atomic_size_t HttpConn::user_count = 0;
 
 HttpConn::HttpConn() : fd_(-1), address_({}), is_close_(true)

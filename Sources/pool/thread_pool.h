@@ -35,7 +35,8 @@ private:
     std::queue<std::function<void()>> tasks_queue_;
 };
 
-inline ThreadPool::ThreadPool(std::size_t thread_num)
+inline ThreadPool::ThreadPool(std::size_t thread_num) :
+is_close_(false)
 {
     if(thread_num > 32)
         thread_num = 32;

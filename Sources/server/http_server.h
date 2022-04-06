@@ -3,14 +3,15 @@
  * @Date         : 2020-06-25
  * @copyleft Apache 2.0
  */ 
-#ifndef WHITEWEBSERVER_SERVER_SERVER_H
-#define WHITEWEBSERVER_SERVER_SERVER_H
+#ifndef WHITEWEBSERVER_SERVER_HTTP_SERVER_H
+#define WHITEWEBSERVER_SERVER_HTTP_SERVER_H
 
 #include "protocol/http/http_conn.h"
 #include "pool/thread_pool.h"
 #include "timer/heap_timer.h"
 #include "logger/logger.h"
 #include "epoll/epoll.h"
+#include "config/config.h"
 
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -21,11 +22,11 @@
 
 namespace white {
 
-class Server
+class HttpServer
 {
 public:
-    Server(const char *address, int port, const char *web_root, int timeout = 60000, bool enable_linger = true, const char *log_dir = "/var/log/whitewebserver/whitewebserver.log");
-    ~Server();
+    HttpServer(const Config &config);
+    ~HttpServer();
 
     void Run();
 
@@ -70,27 +71,33 @@ private:
     std::unique_ptr<ThreadPool> pool_;
     Epoll epoll_;
     std::unordered_map<int, HttpConn> users_;
+
+// for proxy
+private:
+    bool is_set_proxy_;
+    int proxy_server_fd_;
+    int proxy_client_fd_;
 };
 
-inline void Server::SetNoBlock(int fd)
+inline void HttpServer::SetNoBlock(int fd)
 {
     auto old_option = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, old_option | O_NONBLOCK);
 }
 
-inline void Server::DealWrite(HttpConn &client)
+inline void HttpServer::DealWrite(HttpConn &client)
 {
     ExtentTime(client);
-    pool_->AddTask(std::bind(&Server::OnWrite, this, std::ref(client)));
+    pool_->AddTask(std::bind(&HttpServer::OnWrite, this, std::ref(client)));
 }
 
-inline void Server::DealRead(HttpConn &client)
+inline void HttpServer::DealRead(HttpConn &client)
 {
     ExtentTime(client);
-    pool_->AddTask(std::bind(&Server::OnRead, this, std::ref(client)));
+    pool_->AddTask(std::bind(&HttpServer::OnRead, this, std::ref(client)));
 }
 
-inline void Server::ExtentTime(HttpConn &client)
+inline void HttpServer::ExtentTime(HttpConn &client)
 {
     if(timeout_)
         timer_->AdjustTimer(client.GetFd(), timeout_);

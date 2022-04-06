@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <atomic>
+#include <string>
 
 #include "buffer/buffer.h"
 #include "logger/logger.h"
@@ -56,7 +57,7 @@ public:
     bool IsConnected() const;
 
 public:
-    static const char* web_root;
+    static std::string web_root;
     static std::atomic_size_t user_count;
 
 private:

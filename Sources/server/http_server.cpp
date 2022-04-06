@@ -3,7 +3,7 @@
  * @Date         : 2020-06-25
  * @copyleft Apache 2.0
  */ 
-#include "server/server.h"
+#include "server/http_server.h"
 
 #include <cstring>
 #include <sys/socket.h>
@@ -14,33 +14,26 @@
 namespace white
 {
 
-const int Server::kMaxFd = 65536;
+const int HttpServer::kMaxFd = 65536;
 
-Server::Server(const char *address, int port, const char *web_root, int timeout, bool enable_linger, const char *log_dir) : 
-port_(port),
-web_root_(std::string(web_root)),
-timeout_(timeout),
-enable_linger_(enable_linger),
+HttpServer::HttpServer(const Config &config) : 
+port_(ntohs(config.Port())),
+web_root_(config.WebRoot()),
+timeout_(config.Timeout()),
+enable_linger_(true),
 is_close_(false),
 timer_(new HeapTimer()),
 pool_(new ThreadPool()),
 epoll_(Epoll())
 {
-    LOG_INIT(log_dir, kLogLevelDebug);
+    LOG_INIT(config.LogDir(), kLogLevelDebug);
     bzero(&address_, sizeof(address_));
-    if (strcasecmp(address, "0.0.0.0") == 0 || strcasecmp(address, "*") == 0)
-        address_.sin_addr.s_addr = htonl(INADDR_ANY);
-    else
-        inet_pton(AF_INET, address, &address_.sin_addr.s_addr);
-    
-    address_.sin_port = htons(port);
+    address_.sin_addr.s_addr = config.Address();
+    address_.sin_port = config.Port();
     address_.sin_family = AF_INET;
 
     HttpConn::user_count = 0;
-    int web_root_len = strlen(web_root);
-    char *web_root_tmp = new char[web_root_len];
-    strcpy(web_root_tmp, web_root);
-    HttpConn::web_root = web_root_tmp;
+    HttpConn::web_root = config.WebRoot();
 
     InitEventMode();
     if(!InitSocket())
@@ -53,18 +46,17 @@ epoll_(Epoll())
     else
     {
         LOG_INFO("========== Server Init successful ==========");
-        LOG_INFO("[Port] ", port_, "[Log path] ", log_dir, "[web root] ", HttpConn::web_root);
+        LOG_INFO("[Port] ", port_, " [Log path] ", config.LogDir(), " [web root] ", HttpConn::web_root);
     }
 }
 
-Server::~Server()
+HttpServer::~HttpServer()
 {
     close(listenfd_);
-    delete[] HttpConn::web_root;
     is_close_ = true;
 }
 
-void Server::Run()
+void HttpServer::Run()
 {
     int time_epoll = -1;
     if(!is_close_)
@@ -96,7 +88,7 @@ void Server::Run()
     }
 }
 
-bool Server::InitSocket()
+bool HttpServer::InitSocket()
 {
     listenfd_ = socket(AF_INET, SOCK_STREAM, 0);
     if(listenfd_ < 0)
@@ -152,7 +144,7 @@ bool Server::InitSocket()
     return true;
 }
 
-void Server::InitEventMode()
+void HttpServer::InitEventMode()
 {
     listen_event_ = EPOLLRDHUP; // tcp connection closed by peer.
     conn_event_ = EPOLLONESHOT | EPOLLRDHUP;
@@ -161,16 +153,16 @@ void Server::InitEventMode()
     conn_event_ |= EPOLLET;
 }
 
-void Server::AddClient(int fd, sockaddr_in addr)
+void HttpServer::AddClient(int fd, sockaddr_in addr)
 {
     users_[fd].Init(fd, addr);
     if(timeout_)
-        timer_->AddTimer(fd, timeout_, std::bind(&Server::CloseConn, this, std::ref(users_[fd]))); // close after timeout
+        timer_->AddTimer(fd, timeout_, std::bind(&HttpServer::CloseConn, this, std::ref(users_[fd]))); // close after timeout
     epoll_.AddFd(fd, EPOLLIN | conn_event_);
     SetNoBlock(fd);
 }
 
-void Server::DealListen()
+void HttpServer::DealListen()
 {
     sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -189,7 +181,7 @@ void Server::DealListen()
     } while (true);
 }
 
-void Server::SendError(int fd, const char *info)
+void HttpServer::SendError(int fd, const char *info)
 {
     int total_len = strlen(info);
     int send_len = 0;
@@ -206,13 +198,13 @@ void Server::SendError(int fd, const char *info)
     close(fd);
 }
 
-void Server::CloseConn(HttpConn &client)
+void HttpServer::CloseConn(HttpConn &client)
 {
     epoll_.DelFd(client.GetFd());
     client.Close();
 }
 
-void Server::OnRead(HttpConn &client)
+void HttpServer::OnRead(HttpConn &client)
 {
     int read_error;
     int ret = client.Read(&read_error);
@@ -224,7 +216,7 @@ void Server::OnRead(HttpConn &client)
     OnProcess(client);
 }
 
-void Server::OnWrite(HttpConn &client)
+void HttpServer::OnWrite(HttpConn &client)
 {
     int write_error;
     int ret = client.Write(&write_error);
@@ -250,7 +242,7 @@ void Server::OnWrite(HttpConn &client)
     CloseConn(client);
 }
 
-void Server::OnProcess(HttpConn &client)
+void HttpServer::OnProcess(HttpConn &client)
 {
     auto process_result = client.Process();
     switch (process_result)

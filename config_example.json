@@ -1,0 +1,7 @@
+{
+    "listen": "*",
+    "port": 8080,
+    "root": "/srv/html/",
+    "log path": "/home/ubuntu/WhiteWebServer/test/logs/testserver.log",
+    "timeout": 60000
+}

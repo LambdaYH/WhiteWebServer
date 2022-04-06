@@ -41,7 +41,7 @@ inline void LogInputHelper(LogStream &stream, const T &in, const args &...rest)
     LogInputHelper(stream, rest...);
 }
 
-inline void LogInputHelper(LogStream& stream)
+inline void LogInputHelper(LogStream &stream)
 {
     stream << '\n';
 }
