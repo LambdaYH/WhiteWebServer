@@ -5,6 +5,7 @@
 #include <memory>
 #include "buffer/buffer.h"
 #include "logger/noncopyable.h"
+#include "jsoncpp/json/json.h"
 
 namespace white {
 
@@ -35,9 +36,11 @@ public:
     LogStream& operator<<(char v);
     LogStream& operator<<(const char *v);
     LogStream& operator<<(const std::string &v);
+    LogStream& operator<<(const Json::Value &v);
 
 private:
     Buffer buffer_;
+    Json::FastWriter fast_writer_;
 
 };
 
@@ -148,6 +151,12 @@ inline LogStream& LogStream::operator<<(const char *v)
 inline LogStream& LogStream::operator<<(const std::string &v)
 {
     buffer_.Append(v);
+    return *this;
+}
+
+inline LogStream& LogStream::operator<<(const Json::Value &v)
+{
+    buffer_.Append(fast_writer_.write(v));
     return *this;
 }
 

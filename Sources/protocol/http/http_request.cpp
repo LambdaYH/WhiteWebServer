@@ -249,21 +249,16 @@ void HttpRequest::ParsePost()
         while((end = body_.find('&', begin)) != std::string::npos)
         {
             int split_pos = body_.find('=', begin);
-            //
             auto key = ConvertPercentEncoding(body_, begin, split_pos);
             auto value = ConvertPercentEncoding(body_, split_pos + 1, end);
-            // LOG_DEBUG("Post: ", key, "=", value);
-            //
-            post_[key] = value;
+            post_[std::move(key)] = std::move(value);
             begin = end + 1;
         }
         int split_pos = body_.find('=', begin);
         auto key = ConvertPercentEncoding(body_, begin, split_pos);
         auto value = ConvertPercentEncoding(body_, split_pos + 1, n);
-        // LOG_DEBUG("Post: ", key, "=", value);
-        Json::FastWriter fast_writer;
-        LOG_DEBUG(fast_writer.write(post_));
-        post_[key] = value;
+        post_[std::move(key)] = std::move(value);
+        LOG_DEBUG(post_);
 
     }else if(strncasecmp(content_type.c_str(), "application/json", 16) == 0)
     {
@@ -271,10 +266,7 @@ void HttpRequest::ParsePost()
         if(!reader.parse(body_, post_))
             LOG_ERROR("Parse post error!");
         else
-        {
-            Json::FastWriter fast_writer;
-            LOG_DEBUG(fast_writer.write(post_));
-        }
+            LOG_DEBUG(post_);
     }
 }
 
