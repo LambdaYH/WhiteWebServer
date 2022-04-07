@@ -8,6 +8,38 @@
 #include <tuple>
 #include <cctype>
 
+namespace {
+
+constexpr const char kDecToHexChar[16]{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+inline int HexToDec(char ch)
+{
+    ch = std::toupper(ch);
+    if(ch >= '0' && ch <= '9')
+        return ch - '0';
+    return ch - 'A' + 10;
+}
+
+inline std::string ConvertPercentEncoding(const std::string &str, int begin, int end)
+{
+    std::string ret;
+    for(int i = begin; i < end; ++i)
+    {
+        if(str[i] == '+')
+            ret += ' ';
+        else if(str[i] == '%')
+        {
+            int hex_char = HexToDec(str[i + 1]) * 16 + HexToDec(str[i + 2]);
+            ret += static_cast<char>(hex_char);
+            i += 2;
+        }else
+            ret += str[i];
+    }
+    return ret;
+}
+
+} // namespace
+
 namespace white
 {
 
@@ -33,6 +65,8 @@ void HttpRequest::Init()
 // parse one line each time.
 std::pair<HttpRequest::LINE_STATUS, std::size_t> HttpRequest::ParseLine(Buffer& buff)
 {
+    if(state_ == PARSE_STATE::BODY) // if only body remain to be parsed, return immediately
+        return {LINE_STATUS::LINE_OK, buff.ReadableBytes()};
     char *begin = buff.ReadBegin();
     char *end = buff.WriteBegin();
     char temp;
@@ -206,13 +240,42 @@ bool HttpRequest::ParseBody(const Buffer& buff)
 // remain
 void HttpRequest::ParsePost()
 {
+    const std::string &content_type = header_["CONTENT-TYPE"];
+    if(strncasecmp(content_type.c_str(), "application/x-www-form-urlencoded", 33) == 0)
+    {
+        std::size_t n = body_.size();
+        int begin = 0;
+        int end;
+        while((end = body_.find('&', begin)) != std::string::npos)
+        {
+            int split_pos = body_.find('=', begin);
+            //
+            auto key = ConvertPercentEncoding(body_, begin, split_pos);
+            auto value = ConvertPercentEncoding(body_, split_pos + 1, end);
+            // LOG_DEBUG("Post: ", key, "=", value);
+            //
+            post_[key] = value;
+            begin = end + 1;
+        }
+        int split_pos = body_.find('=', begin);
+        auto key = ConvertPercentEncoding(body_, begin, split_pos);
+        auto value = ConvertPercentEncoding(body_, split_pos + 1, n);
+        // LOG_DEBUG("Post: ", key, "=", value);
+        Json::FastWriter fast_writer;
+        LOG_DEBUG(fast_writer.write(post_));
+        post_[key] = value;
 
-}
-
-// remain
-void HttpRequest::ParseFromUrlEncoded()
-{
-
+    }else if(strncasecmp(content_type.c_str(), "application/json", 16) == 0)
+    {
+        Json::Reader reader;
+        if(!reader.parse(body_, post_))
+            LOG_ERROR("Parse post error!");
+        else
+        {
+            Json::FastWriter fast_writer;
+            LOG_DEBUG(fast_writer.write(post_));
+        }
+    }
 }
 
 } // namespace white

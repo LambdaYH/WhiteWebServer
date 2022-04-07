@@ -77,7 +77,7 @@ inline void ConfigParser::Parse()
         if(root["port"] != Json::nullValue)
             new_config.port_ = htons(root["port"].asInt());
         
-        new_config.log_dir_ = root.get("log path", "/var/log/whitewebserver").asString();
+        new_config.log_dir_ = root.get("log_path", "/var/log/whitewebserver").asString();
         new_config.web_root_ = root.get("root", "/etc/whitewebserver/html").asString();
         new_config.timeout_ = root.get("timeout", 60000).asInt();
 

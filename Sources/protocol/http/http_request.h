@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <utility>
 #include <cctype>
+#include <jsoncpp/json/json.h>
 
 namespace white {
 
@@ -61,8 +62,7 @@ protected:
     const std::string& Path() const;
     const std::string& Method() const;
     const std::string& Version() const;
-    std::string GetPost(const std::string& key) const;
-    std::string GetPost(const char* key) const;
+    Json::Value GetPost(const std::string& key) const;
 
     bool IsFinish() const;
     bool IsKeepAlive() const;
@@ -88,7 +88,6 @@ private:
      */
     bool ParsePath();
     void ParsePost();
-    void ParseFromUrlEncoded();
 
     PARSE_STATE state_;
     std::string method_;
@@ -96,11 +95,9 @@ private:
     std::string version_;
     std::string body_;
     std::unordered_map<std::string, std::string> header_;
-    std::unordered_map<std::string, std::string> post_;
+    Json::Value post_;
 
 private:
-    int ConvertHex(char ch);
-
     std::string &StrToupper(std::string &s);
 };
 
@@ -132,16 +129,11 @@ inline const std::string &HttpRequest::Version() const
     return version_;
 }
 
-inline std::string HttpRequest::GetPost(const std::string& key) const
+inline Json::Value HttpRequest::GetPost(const std::string& key) const
 {
-    if(!post_.count(key))
-        return "";
-    return post_.find(key)->second;
-}
-
-inline std::string HttpRequest::GetPost(const char* key) const
-{
-    return GetPost(std::string(key));
+    if(post_[key] != Json::nullValue)
+        return Json::nullValue;
+    return post_[key];
 }
 
 inline std::string& HttpRequest::StrToupper(std::string& s)
@@ -150,14 +142,6 @@ inline std::string& HttpRequest::StrToupper(std::string& s)
                     [](unsigned char c){ return std::toupper(c); }
                     );
     return s;
-}
-
-inline int HttpRequest::ConvertHex(char ch)
-{
-    ch = std::toupper(ch);
-    if(ch >= 'A' && ch <= 'F')
-        return ch - 'A' + 10;
-    return ch;
 }
 
 } // namespace white

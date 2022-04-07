@@ -26,7 +26,7 @@ make
 - [ ] 支持gzip
 - [x] 异步日志
 - [ ] 添加proxy。
-- [ ] 支持post请求。
+- [x] 支持解析post请求。
 - [ ] 支持websocket。
 - [x] 支持配置文件。
 
