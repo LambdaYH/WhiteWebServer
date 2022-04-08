@@ -25,10 +25,10 @@ make
 - [x] 支持keep-alive
 - [ ] 支持gzip
 - [x] 异步日志
-- [ ] 添加proxy。
-- [x] 支持解析post请求。
-- [ ] 支持websocket。
-- [x] 支持配置文件。
+- [x] 支持reverse proxy（还有bug）
+- [x] 支持解析post请求
+- [ ] 支持websocket
+- [x] 支持配置文件
 
 ## 致谢
 Linux高性能服务器编程，游双著.

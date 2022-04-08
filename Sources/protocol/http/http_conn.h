@@ -27,22 +27,40 @@ public:
         PENDING,
         FAIL,
     };
+
+    enum class PROXY_PROCESS_STATE
+    {
+        PENDING_READ_FROM_CLIENT,
+        PENDING_WRITE_TO_PROXY_SERVER,
+        PENDING_READ_FROM_PROXY_SERVER,
+        PENDING_WRITE_TO_CLIENT,
+        FINISH,
+        FAIL,
+    };
 public:
     HttpConn();
     ~HttpConn();
 
-    void Init(int fd, const sockaddr_in& addr);
+    void Init(int fd, const sockaddr_in& addr, int proxt_fd = -1);
 
     ssize_t Read(int *err);
     ssize_t Write(int *err);
 
+    ssize_t SendRequestToProxy(int *err);
+    ssize_t ReadResponseFromProxy(int *err);
+
     void Close();
 
+    void ResetProxyFd(int new_proxy_fd);
+
     int GetFd() const;
+    int GetProxyFd() const;
     int GetPort() const;
     const char* GetIP() const;
 
     PROCESS_STATE Process();
+    PROXY_PROCESS_STATE ProcessProxy();
+
 
     int PendingWriteBytes() const;
 
@@ -61,8 +79,15 @@ public:
     static std::atomic_size_t user_count;
 
 private:
+    ssize_t ReadFromFd(int fd, int *err);
+    ssize_t WriteToFd(int fd, int *err);
+
+private:
     int fd_;
+    int proxy_fd_;
     sockaddr_in address_;
+
+    PROXY_PROCESS_STATE proxy_process_state_;
 
     bool is_close_;
 
@@ -76,9 +101,35 @@ private:
     HttpResponse response_;
 };
 
+// response is small enough for a buffer to read
+inline ssize_t HttpConn::Read(int *err)
+{
+    return ReadFromFd(fd_, err);
+}
+
+inline ssize_t HttpConn::Write(int *err)
+{
+    return WriteToFd(fd_, err);
+}
+
+inline ssize_t HttpConn::SendRequestToProxy(int *err)
+{
+    return WriteToFd(proxy_fd_, err);
+}
+
+inline ssize_t HttpConn::ReadResponseFromProxy(int *err)
+{
+    return ReadFromFd(proxy_fd_, err);
+}
+
 inline int HttpConn::GetFd() const
 {
     return fd_;
+}
+
+inline int HttpConn::GetProxyFd() const
+{
+    return proxy_fd_;
 }
 
 inline int HttpConn::GetPort() const
@@ -104,6 +155,11 @@ inline bool HttpConn::IsKeepAlive() const
 inline bool HttpConn::IsConnected() const
 {
     return !is_close_;
+}
+
+inline void HttpConn::ResetProxyFd(int new_proxy_fd)
+{
+    proxy_fd_ = new_proxy_fd;
 }
 
 } // namespace white

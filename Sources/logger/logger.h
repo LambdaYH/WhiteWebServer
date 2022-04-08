@@ -23,7 +23,7 @@ template <typename... args>
 void LOG_INFO(const args &...inputs);
 
 template <typename... args>
-void LOG_WARNING(const args &...inputs);
+void LOG_WARN(const args &...inputs);
 
 template <typename... args>
 void LOG_ERROR(const args &...inputs);

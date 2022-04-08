@@ -17,6 +17,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -33,21 +34,31 @@ public:
 private:
     bool InitSocket();
     void InitEventMode(); // default: et
-    void AddClient(int fd, sockaddr_in addr);
+    void AddClient(int fd, sockaddr_in addr, int proxy_fd = -1);
 
     void DealListen();
-    void DealWrite(HttpConn &client);
-    void DealRead(HttpConn &client);
+    void DealWrite(int fd);
+    void DealRead(int fd);
+    void DealDisconnect(int fd);
+
+    void DealProxyRead();
 
     void SendError(int fd, const char *info);
     void ExtentTime(HttpConn &client);
     void CloseConn(HttpConn &client);
 
-    void OnRead(HttpConn &client);
-    void OnWrite(HttpConn &client);
-    void OnProcess(HttpConn &client);
+    void OnRead(HttpConn &client, bool in_proxy);
+    void OnWrite(HttpConn &client, bool in_proxy);
+
+    std::function<void(HttpConn&)> OnProcess;
 
     void SetNoBlock(int fd);
+
+private:
+    void OnProcessStatic(HttpConn &client);
+    void OnProcessProxy(HttpConn &client);
+
+    int GetNewProxyFd();
 
 private:
     static const int kMaxFd;
@@ -75,8 +86,9 @@ private:
 // for proxy
 private:
     bool is_set_proxy_;
-    int proxy_server_fd_;
-    int proxy_client_fd_;
+    ProxyConfig proxy_config_;
+    sockaddr_in proxy_address_;
+    std::unordered_map<int, int> proxy_fd_map_;
 };
 
 inline void HttpServer::SetNoBlock(int fd)
@@ -85,22 +97,43 @@ inline void HttpServer::SetNoBlock(int fd)
     fcntl(fd, F_SETFL, old_option | O_NONBLOCK);
 }
 
-inline void HttpServer::DealWrite(HttpConn &client)
+inline void HttpServer::DealWrite(int fd)
 {
-    ExtentTime(client);
-    pool_->AddTask(std::bind(&HttpServer::OnWrite, this, std::ref(client)));
+    bool in_proxy = false;
+    if(is_set_proxy_ && proxy_fd_map_.count(fd))
+    {
+        fd = proxy_fd_map_[fd];
+        in_proxy = true;
+    }
+    ExtentTime(users_[fd]);
+    pool_->AddTask(std::bind(&HttpServer::OnWrite, this, std::ref(users_[fd]), in_proxy));
 }
 
-inline void HttpServer::DealRead(HttpConn &client)
+inline void HttpServer::DealRead(int fd)
 {
-    ExtentTime(client);
-    pool_->AddTask(std::bind(&HttpServer::OnRead, this, std::ref(client)));
+    bool in_proxy = false;
+    if(is_set_proxy_ && proxy_fd_map_.count(fd))
+    {
+        fd = proxy_fd_map_[fd];
+        in_proxy = true;
+    }
+    ExtentTime(users_[fd]);
+    pool_->AddTask(std::bind(&HttpServer::OnRead, this, std::ref(users_[fd]), in_proxy));
 }
 
 inline void HttpServer::ExtentTime(HttpConn &client)
 {
     if(timeout_)
         timer_->AdjustTimer(client.GetFd(), timeout_);
+}
+
+inline int HttpServer::GetNewProxyFd()
+{
+    int proxy_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(connect(proxy_fd, (sockaddr*)&proxy_address_, sizeof(proxy_address_)) == -1)
+        return -1;
+    LOG_DEBUG("Connect to proxy: ", proxy_fd);
+    return proxy_fd;
 }
 
 } // namespace white

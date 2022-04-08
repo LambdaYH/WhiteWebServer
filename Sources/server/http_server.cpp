@@ -24,11 +24,34 @@ enable_linger_(true),
 is_close_(false),
 timer_(new HeapTimer()),
 pool_(new ThreadPool()),
-epoll_(Epoll())
+epoll_(Epoll()),
+is_set_proxy_(false)
 {
     LOG_INIT(config.LogDir(), kLogLevelDebug);
+
+    if(config.IsProxy())
+    {
+        is_set_proxy_ = true;
+        proxy_config_ = config.GetProxyConfig();
+        OnProcess = std::bind(&HttpServer::OnProcessProxy, this, std::placeholders::_1);
+
+        int proxy_fd = socket(AF_INET, SOCK_STREAM, 0);
+        bzero(&proxy_address_, sizeof(proxy_address_));
+        proxy_address_.sin_addr = proxy_config_.addr_;
+        proxy_address_.sin_family = AF_INET;
+        proxy_address_.sin_port = proxy_config_.port_;
+
+        // Test proxy
+        if(connect(proxy_fd, (sockaddr*)&proxy_address_, sizeof(proxy_address_)) == -1)
+            throw "Proxy destination address unavailable";
+        close(proxy_fd);
+        LOG_INFO("========== Proxy Init Successfully ==========");
+        LOG_INFO("[proxy dest]: ", inet_ntoa(proxy_config_.addr_), " [proxy port]: ", ntohs(proxy_config_.port_));
+    }else
+        OnProcess = std::bind(&HttpServer::OnProcessStatic, this, std::placeholders::_1);
+
     bzero(&address_, sizeof(address_));
-    address_.sin_addr.s_addr = config.Address();
+    address_.sin_addr = config.Address();
     address_.sin_port = config.Port();
     address_.sin_family = AF_INET;
 
@@ -41,11 +64,11 @@ epoll_(Epoll())
 
     if(is_close_)
     {
-        LOG_ERROR("========== Server init error ==========");
+        LOG_ERROR("========== Server Init Error ==========");
     }
     else
     {
-        LOG_INFO("========== Server Init successful ==========");
+        LOG_INFO("========== Server Init Successfully ==========");
         LOG_INFO("[Port] ", port_, " [Log path] ", config.LogDir(), " [web root] ", HttpConn::web_root);
     }
 }
@@ -75,15 +98,13 @@ void HttpServer::Run()
             if(cur_event_fd == listenfd_)
                 DealListen();
             else if(events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))
-                CloseConn(users_[cur_event_fd]);
+                DealDisconnect(cur_event_fd);
             else if(events & EPOLLIN)
-                DealRead(users_[cur_event_fd]);
+                DealRead(cur_event_fd);
             else if(events & EPOLLOUT)
-                DealWrite(users_[cur_event_fd]);
+                DealWrite(cur_event_fd);
             else
-            {
                 LOG_ERROR("Unknown event happened: ", events);
-            }
         }
     }
 }
@@ -153,13 +174,19 @@ void HttpServer::InitEventMode()
     conn_event_ |= EPOLLET;
 }
 
-void HttpServer::AddClient(int fd, sockaddr_in addr)
+void HttpServer::AddClient(int fd, sockaddr_in addr, int proxy_fd)
 {
-    users_[fd].Init(fd, addr);
+    users_[fd].Init(fd, addr, proxy_fd);
     if(timeout_)
         timer_->AddTimer(fd, timeout_, std::bind(&HttpServer::CloseConn, this, std::ref(users_[fd]))); // close after timeout
     epoll_.AddFd(fd, EPOLLIN | conn_event_);
     SetNoBlock(fd);
+    if(proxy_fd != -1)
+    {
+        proxy_fd_map_.emplace(proxy_fd, fd);
+        epoll_.AddFd(proxy_fd, EPOLLIN | conn_event_);
+        SetNoBlock(proxy_fd);
+    }  
 }
 
 void HttpServer::DealListen()
@@ -177,8 +204,40 @@ void HttpServer::DealListen()
             LOG_WARN("Client is full");
             return;
         }
-        AddClient(client_fd, client_addr);
+        int proxy_fd = -1;
+        if(is_set_proxy_)
+            if((proxy_fd = GetNewProxyFd()) == -1)
+                continue;
+        AddClient(client_fd, client_addr, proxy_fd);
     } while (true);
+}
+
+void HttpServer::DealDisconnect(int fd)
+{
+    if(is_set_proxy_ && proxy_fd_map_.count(fd))
+    {
+        int retry_count = 0;
+        int new_proxy_fd;
+        while((new_proxy_fd = GetNewProxyFd()) == -1)
+        {
+            if(retry_count > 5)
+            {
+                LOG_ERROR("Unable to connect to proxy server!");
+                CloseConn(users_[proxy_fd_map_[fd]]);
+            }
+            LOG_WARN("Try to reconnect to the proxy server!");
+        }
+        LOG_INFO("Reconnect to the proxy server!");
+        close(fd);
+        epoll_.DelFd(fd);
+        int client_fd = proxy_fd_map_[fd];
+        users_[client_fd].ResetProxyFd(new_proxy_fd);
+        proxy_fd_map_.erase(fd);
+        proxy_fd_map_.emplace(new_proxy_fd, client_fd);
+        epoll_.AddFd(new_proxy_fd, EPOLLIN);
+        SetNoBlock(new_proxy_fd);
+    }else
+        CloseConn(users_[fd]);
 }
 
 void HttpServer::SendError(int fd, const char *info)
@@ -201,13 +260,22 @@ void HttpServer::SendError(int fd, const char *info)
 void HttpServer::CloseConn(HttpConn &client)
 {
     epoll_.DelFd(client.GetFd());
+    if(is_set_proxy_)
+    {
+        proxy_fd_map_.erase(client.GetProxyFd());
+        epoll_.DelFd(client.GetProxyFd());
+    }
     client.Close();
 }
 
-void HttpServer::OnRead(HttpConn &client)
+void HttpServer::OnRead(HttpConn &client, bool in_proxy)
 {
     int read_error;
-    int ret = client.Read(&read_error);
+    int ret;
+    if(in_proxy)
+        ret = client.ReadResponseFromProxy(&read_error);
+    else
+        ret = client.Read(&read_error);
     if(ret <= 0 && read_error != EAGAIN && read_error != EWOULDBLOCK)
     {
         CloseConn(client);
@@ -216,13 +284,22 @@ void HttpServer::OnRead(HttpConn &client)
     OnProcess(client);
 }
 
-void HttpServer::OnWrite(HttpConn &client)
+void HttpServer::OnWrite(HttpConn &client, bool in_proxy)
 {
     int write_error;
-    int ret = client.Write(&write_error);
+    int ret;
+    if(in_proxy)
+        ret = client.SendRequestToProxy(&write_error);
+    else
+        ret = client.Write(&write_error);
     if (client.PendingWriteBytes() == 0)
     {
-        // Todo: handling keep-alive
+        if(in_proxy)
+        {
+            ExtentTime(client);
+            epoll_.ModFd(client.GetProxyFd(), conn_event_ | EPOLLIN); // waiting for response from proxy server
+            return;
+        }
         if (client.IsKeepAlive())
         {
             // wait for the next in
@@ -235,14 +312,18 @@ void HttpServer::OnWrite(HttpConn &client)
         // need futher write
         if(write_error == EAGAIN || write_error == EWOULDBLOCK)
         {
-            epoll_.ModFd(client.GetFd(), conn_event_ | EPOLLOUT);
+            if(in_proxy)
+                epoll_.ModFd(client.GetProxyFd(), conn_event_ | EPOLLOUT);
+            else
+                epoll_.ModFd(client.GetFd(), conn_event_ | EPOLLOUT);
             return;
         }
     }
-    CloseConn(client);
+    if(!in_proxy)
+        CloseConn(client);
 }
 
-void HttpServer::OnProcess(HttpConn &client)
+void HttpServer::OnProcessStatic(HttpConn &client)
 {
     auto process_result = client.Process();
     switch (process_result)
@@ -255,6 +336,22 @@ void HttpServer::OnProcess(HttpConn &client)
             break;
         case HttpConn::PROCESS_STATE::FAIL:
             epoll_.ModFd(client.GetFd(), conn_event_ | EPOLLIN);
+            break;
+        default:
+            break;
+    }
+}
+
+void HttpServer::OnProcessProxy(HttpConn &client)
+{
+    auto process_result = client.ProcessProxy();
+    switch (process_result)
+    {
+        case HttpConn::PROXY_PROCESS_STATE::PENDING_WRITE_TO_PROXY_SERVER:
+            epoll_.ModFd(client.GetProxyFd(), conn_event_ | EPOLLOUT);
+            break;
+        case HttpConn::PROXY_PROCESS_STATE::PENDING_WRITE_TO_CLIENT:
+            epoll_.ModFd(client.GetFd(), conn_event_ | EPOLLOUT);
             break;
         default:
             break;

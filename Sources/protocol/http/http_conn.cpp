@@ -28,37 +28,38 @@ HttpConn::~HttpConn()
     Close();
 }
 
-void HttpConn::Init(int fd, const sockaddr_in& addr)
+void HttpConn::Init(int fd, const sockaddr_in& addr, int proxt_fd)
 {
     ++user_count;
     address_ = addr;
     fd_ = fd;
+    proxy_fd_ = proxt_fd;
+    proxy_process_state_ = PROXY_PROCESS_STATE::PENDING_READ_FROM_CLIENT;
     write_buff_.Clear();
     read_buff_.Clear();
     is_close_ = false;
     LOG_INFO("Client[", fd_, "](",GetIP(), GetPort(), ") connected, current userCount: ", user_count.load());
 }
 
-// response is small enough for a buffer to read
-ssize_t HttpConn::Read(int *err)
+ssize_t HttpConn::ReadFromFd(int fd, int *err)
 {
     ssize_t len = -1;
     do
     {
-        len = read_buff_.ReadFromFd(fd_, err);
+        len = read_buff_.ReadFromFd(fd, err);
         if(len <= 0)
             break;
     } while(true);
     return len;
 }
 
-ssize_t HttpConn::Write(int *err)
+ssize_t HttpConn::WriteToFd(int fd, int *err)
 {
     ssize_t len = -1;
     ssize_t total_len = 0;  
     do
     {
-        len = writev(fd_, iov_, iov_cnt_);
+        len = writev(fd, iov_, iov_cnt_);
         total_len += len;
         if (len <= 0)
         {
@@ -96,6 +97,8 @@ void HttpConn::Close()
         is_close_ = true;
         --user_count;
         close(fd_);
+        if(proxy_fd_ != -1)
+            close(proxy_fd_);
         request_.Init();
         LOG_INFO("Client[", fd_, "](",GetIP(), GetPort(), ") disconnected, current userCount: ", user_count.load());
     }
@@ -137,6 +140,53 @@ HttpConn::PROCESS_STATE HttpConn::Process()
     }
     LOG_DEBUG("File: ", response_.FileSize(), " to be writing");
     return PROCESS_STATE::FINISH;
+}
+
+HttpConn::PROXY_PROCESS_STATE HttpConn::ProcessProxy()
+{
+    switch(proxy_process_state_)
+    {
+        case PROXY_PROCESS_STATE::PENDING_READ_FROM_CLIENT:
+        {
+            if(request_.IsFinish())
+                request_.Init();
+            auto request_parse_result = request_.Parse(read_buff_);
+            switch(request_parse_result)
+            {
+                case HttpRequest::HTTP_CODE::MOVED_PERMANENTLY:
+                case HttpRequest::HTTP_CODE::GET_REQUEST:
+                    request_.MakeProxyRequests(write_buff_, inet_ntoa(address_.sin_addr));
+                    iov_[0].iov_base = write_buff_.ReadBegin();
+                    iov_[0].iov_len = write_buff_.ReadableBytes();
+                    iov_cnt_ = 1;
+                    proxy_process_state_ = PROXY_PROCESS_STATE::PENDING_READ_FROM_PROXY_SERVER;
+                    return PROXY_PROCESS_STATE::PENDING_WRITE_TO_PROXY_SERVER;
+                    break;
+                case HttpRequest::HTTP_CODE::BAD_REQUEST:
+                    response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 400);
+                    response_.MakeResponse(write_buff_);
+                    iov_[0].iov_base = write_buff_.ReadBegin();
+                    iov_[0].iov_len = write_buff_.ReadableBytes();
+                    iov_cnt_ = 1;
+                    proxy_process_state_ = PROXY_PROCESS_STATE::PENDING_READ_FROM_CLIENT;
+                    return PROXY_PROCESS_STATE::PENDING_WRITE_TO_CLIENT;
+                    break;
+            }
+            break;
+        }
+        case PROXY_PROCESS_STATE::PENDING_READ_FROM_PROXY_SERVER:
+            write_buff_.Append(read_buff_);
+            read_buff_.Clear();
+            iov_[0].iov_base = write_buff_.ReadBegin();
+            iov_[0].iov_len = write_buff_.ReadableBytes();
+            iov_cnt_ = 1;
+            proxy_process_state_ = PROXY_PROCESS_STATE::PENDING_READ_FROM_CLIENT;
+            return PROXY_PROCESS_STATE::PENDING_WRITE_TO_CLIENT;
+            break;
+        default:
+            break;
+    }
+    return PROXY_PROCESS_STATE::PENDING_WRITE_TO_CLIENT;
 }
 
 } // namespace white

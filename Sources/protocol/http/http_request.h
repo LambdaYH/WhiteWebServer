@@ -18,6 +18,9 @@
 
 namespace white {
 
+extern inline std::string& StrToupper(std::string& s);
+extern inline std::string& StrTolower(std::string& s);
+
 class HttpRequest
 {
 
@@ -57,12 +60,14 @@ protected:
     ~HttpRequest();
 
     void Init();
-    HTTP_CODE Parse(Buffer& buff);
+    HTTP_CODE Parse(Buffer &buff);
+
+    void MakeProxyRequests(Buffer &buff, const std::string &origin_ip);
 
     const std::string& Path() const;
     const std::string& Method() const;
     const std::string& Version() const;
-    Json::Value GetPost(const std::string& key) const;
+    Json::Value GetPost(const std::string &key) const;
 
     bool IsFinish() const;
     bool IsKeepAlive() const;
@@ -74,11 +79,11 @@ private:
      * @param buff 
      * @return std::pair<LINE_STATUS, std::size_t> 
      */
-    std::pair<LINE_STATUS, std::size_t> ParseLine(Buffer& buff);
+    std::pair<LINE_STATUS, std::size_t> ParseLine(Buffer &buff);
 
-    bool ParseRequestLine(Buffer& buff);
-    bool ParseHeader(Buffer& buff);
-    bool ParseBody(const Buffer& buff);
+    bool ParseRequestLine(Buffer &buff);
+    bool ParseHeader(Buffer &buff);
+    bool ParseBody(const Buffer &buff);
 
     /**
      * @brief Return true is path changed.
@@ -97,8 +102,6 @@ private:
     std::unordered_map<std::string, std::string> header_;
     Json::Value post_;
 
-private:
-    std::string &StrToupper(std::string &s);
 };
 
 inline bool HttpRequest::IsFinish() const
@@ -136,7 +139,15 @@ inline Json::Value HttpRequest::GetPost(const std::string& key) const
     return post_[key];
 }
 
-inline std::string& HttpRequest::StrToupper(std::string& s)
+inline std::string& StrToupper(std::string& s)
+{
+    std::transform(s.begin(), s.end(), s.begin(),
+                    [](unsigned char c){ return std::toupper(c); }
+                    );
+    return s;
+}
+
+inline std::string& StrTolower(std::string& s)
 {
     std::transform(s.begin(), s.end(), s.begin(),
                     [](unsigned char c){ return std::toupper(c); }

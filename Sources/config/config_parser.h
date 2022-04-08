@@ -7,8 +7,19 @@
 #include <queue>
 #include <arpa/inet.h>
 #include <jsoncpp/json/json.h>
+#include <netdb.h>
 
 #include "config/config.h"
+
+namespace {
+
+void ParseErrorHanding(const char *msg)
+{
+    fprintf(stderr, msg);
+    exit(1);
+}
+
+} // namespace
 
 namespace white {
 
@@ -69,7 +80,7 @@ inline void ConfigParser::Parse()
         {
             std::string address = root["listen"].asString();
             if (address == "0.0.0.0" || address == "*")
-                new_config.address_ = htonl(INADDR_ANY);
+                new_config.address_.s_addr = htonl(INADDR_ANY);
             else
                 inet_pton(AF_INET, address.c_str(), &new_config.address_);
         }
@@ -81,6 +92,65 @@ inline void ConfigParser::Parse()
         new_config.web_root_ = root.get("root", "/etc/whitewebserver/html").asString();
         new_config.timeout_ = root.get("timeout", 60000).asInt();
 
+        if(root["proxy_pass"] != Json::nullValue)
+        {
+            new_config.is_proxy_ = true;
+            std::string proxy_pass_origin_path = root["proxy_pass"].asString();
+
+            auto protocol_end_pos = proxy_pass_origin_path.find(':', 0);
+            if(protocol_end_pos == std::string::npos)
+                ParseErrorHanding("Proxy pass config error!");
+            if(protocol_end_pos == 4 && (strcasecmp(proxy_pass_origin_path.substr(0, 4).c_str(), "http") == 0))
+                new_config.proxy_config_.protocol_ = "http";
+            else if(protocol_end_pos == 5 && (strcasecmp(proxy_pass_origin_path.substr(0, 5).c_str(), "https") == 0))
+                new_config.proxy_config_.protocol_ = "https";
+            else
+                ParseErrorHanding("Proxy pass config error!");
+
+            auto addr_start_pos = protocol_end_pos + 3;
+            auto addr_end_pos = proxy_pass_origin_path.find(':', addr_start_pos);
+            if(addr_end_pos == std::string::npos)
+            {
+                if(new_config.proxy_config_.protocol_ == "http")
+                    new_config.proxy_config_.port_ = htons(80);
+                else
+                    new_config.proxy_config_.port_ = htons(443);
+                addr_end_pos = proxy_pass_origin_path.find('/', addr_start_pos);
+                if(addr_end_pos == std::string::npos)
+                {
+                    new_config.proxy_config_.path_ = "/";
+                    addr_end_pos = proxy_pass_origin_path.size();
+                }
+            }else
+            {
+                auto host_str = proxy_pass_origin_path.substr(addr_start_pos, addr_end_pos - addr_start_pos).c_str();
+                new_config.proxy_config_.host_ = host_str;
+                hostent *host_info = gethostbyname(host_str);
+                if(host_info != nullptr)
+                {
+                    new_config.proxy_config_.addr_ = *(in_addr*)(host_info->h_addr_list)[0];
+                }else
+                {
+                    if(inet_pton(AF_INET, 
+                                host_str,
+                                &new_config.proxy_config_.addr_) 
+                        != 1)
+                        ParseErrorHanding("Proxy pass config error!");
+                }
+            }
+            auto port_end_pos = proxy_pass_origin_path.find('/', addr_end_pos);
+            if(port_end_pos == std::string::npos)
+            {
+                new_config.proxy_config_.port_ = htons(stoi(proxy_pass_origin_path.substr(addr_end_pos + 1)));
+                new_config.proxy_config_.path_ = "/";
+            }
+            else if(port_end_pos != addr_end_pos)
+            {
+                new_config.proxy_config_.port_ = htons(stoi(proxy_pass_origin_path.substr(addr_end_pos + 1, port_end_pos - addr_end_pos - 1)));
+                new_config.proxy_config_.path_ = proxy_pass_origin_path.substr(port_end_pos);
+            }
+        }
+        
         configs_.push_back(new_config);
     }
 }

@@ -115,7 +115,20 @@ int main(int argc, char* argv[])
         for (int i = 0; i < num; ++i)
         {
             int sock_fd = events[i].data.fd;
-            if(events[i].events & EPOLLIN)
+            if(events[i].events & EPOLLRDHUP)
+            {
+                std::cout << "connection closed" << std::endl;
+                DelFd(epoll_fd, serv_fd);
+                close(serv_fd);
+                serv_fd = socket(AF_INET, SOCK_STREAM, 0);
+                if (connect(serv_fd, (sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+                {
+                    std::cerr << "Error: connect() : " << strerror(errno) << std::endl;
+                    exit(1);
+                }
+                AddFd(epoll_fd, serv_fd, EPOLLIN);
+                std::cout << "connection re-established" << std::endl;
+            }else if(events[i].events & EPOLLIN)
             {
                 int cur_len = 0;
                 int recv_len = 0;
@@ -132,40 +145,11 @@ int main(int argc, char* argv[])
                     while (total_len > 0)
                     {
                         int len = send(sock_fd,  new_str.c_str() + sent_len, total_len - sent_len, 0);
-                        if(len <= 0)
-                        {
-                            std::cout << len << std::endl;
-                            if(errno != EAGAIN && errno != EWOULDBLOCK)
-                            {
-                                DelFd(epoll_fd, serv_fd);
-                                serv_fd = socket(AF_INET, SOCK_STREAM, 0);
-                                if (connect(serv_fd, (sockaddr *)&server_addr, sizeof(server_addr)) < 0)
-                                {
-                                    std::cerr << "Error: connect() : " << strerror(errno) << std::endl;
-                                    exit(1);
-                                }
-                                AddFd(epoll_fd, serv_fd, EPOLLIN);
-                                std::cout << "connection re-established" << std::endl;
-                            }
-                            break;
-                        }
                         total_len -= len;
                         sent_len += len;
                     }
                 }
                 ModFd(epoll_fd, serv_fd, EPOLLIN);
-            }else
-            {
-                std::cout << "connection closed" << std::endl;
-                DelFd(epoll_fd, serv_fd);
-                serv_fd = socket(AF_INET, SOCK_STREAM, 0);
-                if (connect(serv_fd, (sockaddr *)&server_addr, sizeof(server_addr)) < 0)
-                {
-                    std::cerr << "Error: connect() : " << strerror(errno) << std::endl;
-                    exit(1);
-                }
-                AddFd(epoll_fd, serv_fd, EPOLLIN);
-                std::cout << "connection re-established" << std::endl;
             }
         }
     }

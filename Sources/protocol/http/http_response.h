@@ -14,6 +14,8 @@
 
 namespace white {
 
+extern void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value);
+
 class HttpResponse
 {
 
@@ -24,6 +26,7 @@ protected:
     ~HttpResponse();
 
     void Init(const std::string& src_dir, const std::string& path, const std::string& version = "1.1", bool is_keepalive = true, int response_code = -1);
+
     /**
      * @brief Generate response information and put it into the buffer.
      * 
@@ -45,8 +48,6 @@ private:
     void AddStateLine(Buffer &buff);
     void AddHeader(Buffer &buff);
     void AddContent(Buffer &buff);
-
-    void AddCustomHeader(Buffer &buff, const std::string &header_fields, const std::string &value);
 
     /**
      * @brief If error happened, generate a page to display error.
@@ -141,11 +142,6 @@ inline void HttpResponse::AddHeader(Buffer& buff)
     AddCustomHeader(buff, "Server", "WhiteWebServer");
 }
 
-inline void HttpResponse::AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value)
-{
-    buff.Append(header_fields + ": " + value + "\r\n");
-}
-
 inline void HttpResponse::GenerateErrorHtml()
 {
     if(kCodePath.count(response_code_))
@@ -192,6 +188,11 @@ inline const char* HttpResponse::FileAddr() const
 inline const int HttpResponse::FileSize() const
 {
     return file_stat_.st_size;
+}
+
+inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value)
+{
+    buff.Append(header_fields + ": " + value + "\r\n");
 }
 
 } // namespace white

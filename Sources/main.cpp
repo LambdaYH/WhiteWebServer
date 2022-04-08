@@ -36,21 +36,36 @@ int main(int argc, char* argv[])
 {
     std::filesystem::path current_working_dir = std::filesystem::current_path().parent_path();
     std::filesystem::path config_doc_path = current_working_dir / "whitewebserver.json";
-    white::ConfigParser parser(config_doc_path.native());
-    auto configs = parser.GetConfigs();
+    if(!std::filesystem::exists(config_doc_path))
+    {
+        std::cerr << "Config file: " << config_doc_path << " not exists!" << std::endl;
+        return 0;
+    }
+    std::cout << "Config file: " << config_doc_path << std::endl;
+    std::vector<white::Config> configs;
+    try
+    {
+        white::ConfigParser parser(config_doc_path.native());
+        configs = parser.GetConfigs();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    
     AddSig(SIGCHLD, HandleChild);
     for(const auto &config : configs)
     {
         if(fork() == 0)
         {
             prctl(PR_SET_PDEATHSIG, SIGTERM); // kill child when parent exit
-            white::HttpServer server(config);
+            white::HttpServer server(configs[0]);
             server.Run();
             return 0;
         }
     }
 
-    while (true)
+    while(true)
         pause();
     
 }

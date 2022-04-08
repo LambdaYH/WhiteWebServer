@@ -43,6 +43,8 @@ inline std::string ConvertPercentEncoding(const std::string &str, int begin, int
 namespace white
 {
 
+inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value);
+
 HttpRequest::HttpRequest()
 {
     Init();
@@ -63,7 +65,7 @@ void HttpRequest::Init()
 }
 
 // parse one line each time.
-std::pair<HttpRequest::LINE_STATUS, std::size_t> HttpRequest::ParseLine(Buffer& buff)
+std::pair<HttpRequest::LINE_STATUS, std::size_t> HttpRequest::ParseLine(Buffer &buff)
 {
     if(state_ == PARSE_STATE::BODY) // if only body remain to be parsed, return immediately
         return {LINE_STATUS::LINE_OK, buff.ReadableBytes()};
@@ -98,7 +100,7 @@ std::pair<HttpRequest::LINE_STATUS, std::size_t> HttpRequest::ParseLine(Buffer& 
 }
 
 // unable to handling incomplete request
-HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
+HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer &buff)
 {
     if(buff.ReadableBytes() == 0)
         return HTTP_CODE::NO_REQUEST;
@@ -119,7 +121,7 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
                     state_ = PARSE_STATE::FINISH;
                     return HTTP_CODE::BAD_REQUEST;
                 }
-                is_redirected = ParsePath();
+                // is_redirected = ParsePath();
                 break;
             case PARSE_STATE::HEADERS:
                 if(!ParseHeader(buff))
@@ -146,6 +148,21 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer& buff)
     return HTTP_CODE::NO_REQUEST;
 }
 
+void HttpRequest::MakeProxyRequests(Buffer &buff, const std::string &origin_ip)
+{
+    buff.Append(method_ + " " + path_ + " HTTP/" + version_ + "\r\n");
+    for(auto& [key, value] : header_)
+        AddCustomHeader(buff, key, value);
+    AddCustomHeader(buff, "X-Forwarded-For", origin_ip);
+    AddCustomHeader(buff, "X-Forwarded-Host", header_["HOST"]);
+    AddCustomHeader(buff, "X-Forwarded-Proto", "http");
+    AddCustomHeader(buff, "Forwarded", "for=" + origin_ip + ";host=" + header_["HOST"] + ";proto=http"); // https://www.nginx.com/resources/wiki/start/topics/examples/forwarded/
+    AddCustomHeader(buff, "via", "WhiteWebServer_Proxy");
+    buff.Append("\r\n");
+    if(!body_.empty())
+        buff.Append(body_);
+}
+
 bool HttpRequest::ParsePath()
 {
     if(path_ == "/")
@@ -156,7 +173,7 @@ bool HttpRequest::ParsePath()
     return false;
 }
 
-bool HttpRequest::ParseRequestLine(Buffer& buff)
+bool HttpRequest::ParseRequestLine(Buffer &buff)
 {
     auto line_begin = buff.ReadBegin();
     auto url = strpbrk(line_begin, " \t");
@@ -201,7 +218,7 @@ bool HttpRequest::ParseRequestLine(Buffer& buff)
     return true;
 }
 
-bool HttpRequest::ParseHeader(Buffer& buff)
+bool HttpRequest::ParseHeader(Buffer &buff)
 {
     auto line_begin = buff.ReadBegin();
     if (*line_begin == '\0')
@@ -225,7 +242,7 @@ bool HttpRequest::ParseHeader(Buffer& buff)
 }
 
 // It may be necessary to continue for the case of not reading all at once
-bool HttpRequest::ParseBody(const Buffer& buff)
+bool HttpRequest::ParseBody(const Buffer &buff)
 {
     if(buff.ReadableBytes() >= std::stoi(header_["CONTENT-LENGTH"]))
     {
