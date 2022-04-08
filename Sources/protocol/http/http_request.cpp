@@ -105,7 +105,6 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer &buff)
     if(buff.ReadableBytes() == 0)
         return HTTP_CODE::NO_REQUEST;
     LINE_STATUS line_state;
-    bool is_redirected = false;
     std::size_t line_len;
     while (buff.ReadableBytes())
     {
@@ -121,7 +120,6 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer &buff)
                     state_ = PARSE_STATE::FINISH;
                     return HTTP_CODE::BAD_REQUEST;
                 }
-                // is_redirected = ParsePath();
                 break;
             case PARSE_STATE::HEADERS:
                 if(!ParseHeader(buff))
@@ -143,7 +141,7 @@ HttpRequest::HTTP_CODE HttpRequest::Parse(Buffer &buff)
     if(state_ == PARSE_STATE::FINISH)
     {
         LOG_DEBUG("method: [", method_.c_str(), "] path: [", path_.c_str(), "] version: [", version_.c_str(), "]");
-        return is_redirected ? HTTP_CODE::MOVED_PERMANENTLY : HTTP_CODE::GET_REQUEST;
+        return HTTP_CODE::GET_REQUEST;
     }
     return HTTP_CODE::NO_REQUEST;
 }

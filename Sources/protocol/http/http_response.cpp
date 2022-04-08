@@ -71,7 +71,7 @@ HttpResponse::~HttpResponse()
     Unmap();
 }
 
-void HttpResponse::Init(const std::string& src_dir, const std::string& path, const std::string& version, bool is_keepalive, int response_code)
+void HttpResponse::Init(const std::string& src_dir, const std::string& path, std::shared_ptr<std::vector<std::string>> index_file, const std::string& version, bool is_keepalive, int response_code)
 {
     if(src_dir.empty())
         throw "Source directory can not be empty!";
@@ -86,6 +86,7 @@ void HttpResponse::Init(const std::string& src_dir, const std::string& path, con
     version_ = version;
     is_keepalive_ = is_keepalive;
     response_code_ = response_code;
+    index_file_ = index_file;
 }
 
 void HttpResponse::MakeResponse(Buffer& buff)
@@ -97,7 +98,18 @@ void HttpResponse::MakeResponse(Buffer& buff)
         case 303: // see other
         case 304: // move modified
         case 200:
+        {
             LOG_DEBUG("Requested file: ", (src_dir_ + path_).c_str());
+            if(path_.back() == '/')
+            {
+                for(auto &file : *index_file_)
+                    if(access((src_dir_ + path_ + file).c_str(), F_OK) == 0)
+                    {
+                        path_ += file;
+                        response_code_ = 301;
+                        break;
+                    }
+            }
             if (stat((src_dir_ + path_).c_str(), &file_stat_) < 0 || S_ISDIR(file_stat_.st_mode))
                 response_code_ = 404;
             else if(!(file_stat_.st_mode & S_IROTH))    
@@ -105,6 +117,7 @@ void HttpResponse::MakeResponse(Buffer& buff)
             else if(response_code_ == -1)
                 response_code_ = 200;
             break;
+        }
         default:
             break;
     }

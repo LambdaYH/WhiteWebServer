@@ -25,10 +25,10 @@ is_close_(false),
 timer_(new HeapTimer()),
 pool_(new ThreadPool()),
 epoll_(Epoll()),
-is_set_proxy_(false)
+is_set_proxy_(false),
+index_file_(std::make_shared<std::vector<std::string>>(config.IndexFile()))
 {
     LOG_INIT(config.LogDir(), kLogLevelDebug);
-
     if(config.IsProxy())
     {
         is_set_proxy_ = true;
@@ -43,7 +43,10 @@ is_set_proxy_(false)
 
         // Test proxy
         if(connect(proxy_fd, (sockaddr*)&proxy_address_, sizeof(proxy_address_)) == -1)
-            throw "Proxy destination address unavailable";
+        {
+            LOG_ERROR("Proxy destination address unavailable");
+            exit(2);
+        }
         close(proxy_fd);
         LOG_INFO("========== Proxy Init Successfully ==========");
         LOG_INFO("[proxy dest]: ", inet_ntoa(proxy_config_.addr_), " [proxy port]: ", ntohs(proxy_config_.port_));
@@ -176,7 +179,7 @@ void HttpServer::InitEventMode()
 
 void HttpServer::AddClient(int fd, sockaddr_in addr, int proxy_fd)
 {
-    users_[fd].Init(fd, addr, proxy_fd);
+    users_[fd].Init(fd, addr, proxy_fd, index_file_);
     if(timeout_)
         timer_->AddTimer(fd, timeout_, std::bind(&HttpServer::CloseConn, this, std::ref(users_[fd]))); // close after timeout
     epoll_.AddFd(fd, EPOLLIN | conn_event_);

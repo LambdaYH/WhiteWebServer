@@ -8,13 +8,15 @@
 
 #include "buffer/buffer.h"
 #include <string>
+#include <vector>
+#include <memory>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <unordered_map>
 
 namespace white {
 
-extern void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value);
+extern inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value);
 
 class HttpResponse
 {
@@ -25,7 +27,7 @@ protected:
     HttpResponse();
     ~HttpResponse();
 
-    void Init(const std::string& src_dir, const std::string& path, const std::string& version = "1.1", bool is_keepalive = true, int response_code = -1);
+    void Init(const std::string& src_dir, const std::string& path, std::shared_ptr<std::vector<std::string>> index_file, const std::string& version = "1.1", bool is_keepalive = true, int response_code = -1);
 
     /**
      * @brief Generate response information and put it into the buffer.
@@ -72,6 +74,7 @@ private:
     std::string path_;
     std::string src_dir_;
     std::string version_;
+    std::shared_ptr<std::vector<std::string>> index_file_;
 
     char *file_address_;
     struct stat file_stat_;
@@ -79,6 +82,7 @@ private:
     static const std::unordered_map<std::string, std::string> kSuffixType;
     static const std::unordered_map<int, std::string> kCodeStatus;
     static const std::unordered_map<int, std::string> kCodePath;
+
 };
 
 inline void HttpResponse::Close()

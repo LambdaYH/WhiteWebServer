@@ -28,7 +28,7 @@ HttpConn::~HttpConn()
     Close();
 }
 
-void HttpConn::Init(int fd, const sockaddr_in& addr, int proxt_fd)
+void HttpConn::Init(int fd, const sockaddr_in& addr, int proxt_fd, std::shared_ptr<std::vector<std::string>> index_file)
 {
     ++user_count;
     address_ = addr;
@@ -38,6 +38,7 @@ void HttpConn::Init(int fd, const sockaddr_in& addr, int proxt_fd)
     write_buff_.Clear();
     read_buff_.Clear();
     is_close_ = false;
+    index_file_ = index_file;
     LOG_INFO("Client[", fd_, "](",GetIP(), GetPort(), ") connected, current userCount: ", user_count.load());
 }
 
@@ -114,19 +115,16 @@ HttpConn::PROCESS_STATE HttpConn::Process()
     switch(request_parse_result)
     {
         case HttpRequest::HTTP_CODE::GET_REQUEST:
-            response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 200);
+            response_.Init(web_root, request_.Path(), index_file_, request_.Version(), request_.IsKeepAlive(), 200);
             break;
         case HttpRequest::HTTP_CODE::BAD_REQUEST:
-            response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 400);
-            break;
-        case HttpRequest::HTTP_CODE::MOVED_PERMANENTLY:
-            response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 301);
+            response_.Init(web_root, request_.Path(), index_file_, request_.Version(), request_.IsKeepAlive(), 400);
             break;
         case HttpRequest::HTTP_CODE::NO_REQUEST:
             return PROCESS_STATE::PENDING;
             break;
         default:
-            response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 400);
+            response_.Init(web_root, request_.Path(), index_file_, request_.Version(), request_.IsKeepAlive(), 400);
     }
     response_.MakeResponse(write_buff_);
     iov_[0].iov_base = write_buff_.ReadBegin();
@@ -163,7 +161,7 @@ HttpConn::PROXY_PROCESS_STATE HttpConn::ProcessProxy()
                     return PROXY_PROCESS_STATE::PENDING_WRITE_TO_PROXY_SERVER;
                     break;
                 case HttpRequest::HTTP_CODE::BAD_REQUEST:
-                    response_.Init(web_root, request_.Path(), request_.Version(), request_.IsKeepAlive(), 400);
+                    response_.Init(web_root, request_.Path(), index_file_, request_.Version(), request_.IsKeepAlive(), 400);
                     response_.MakeResponse(write_buff_);
                     iov_[0].iov_base = write_buff_.ReadBegin();
                     iov_[0].iov_len = write_buff_.ReadableBytes();

@@ -91,7 +91,7 @@ inline void ConfigParser::Parse()
         new_config.log_dir_ = root.get("log_path", "/var/log/whitewebserver").asString();
         new_config.web_root_ = root.get("root", "/etc/whitewebserver/html").asString();
         new_config.timeout_ = root.get("timeout", 60000).asInt();
-
+        
         if(root["proxy_pass"] != Json::nullValue)
         {
             new_config.is_proxy_ = true;
@@ -151,6 +151,13 @@ inline void ConfigParser::Parse()
             }
         }
         
+        if(root["index"] != Json::nullValue)
+        {
+            Json::Value index_file = root["index"];
+            for(int i = 0; i < index_file.size(); ++i)
+                new_config.index_file_.push_back(std::move(index_file[i].asString()));
+        }
+
         configs_.push_back(new_config);
     }
 }

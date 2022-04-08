@@ -30,6 +30,7 @@ public:
     const std::string &WebRoot() const { return web_root_; };
     const std::string &LogDir() const { return log_dir_; };
     const int Timeout() const { return timeout_; };
+    const std::vector<std::string> &IndexFile() const { return index_file_; };
 
     const bool IsProxy() const {return is_proxy_; };
     const ProxyConfig &GetProxyConfig() const {return proxy_config_; };
@@ -43,6 +44,7 @@ private:
 
     bool is_proxy_;
     ProxyConfig proxy_config_;
+    std::vector<std::string> index_file_;
 
 };
 

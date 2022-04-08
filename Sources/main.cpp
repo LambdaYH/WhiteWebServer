@@ -51,6 +51,7 @@ int main(int argc, char* argv[])
     catch(const std::exception& e)
     {
         std::cerr << e.what() << '\n';
+        return 1;
     }
     
     AddSig(SIGCHLD, HandleChild);
@@ -59,7 +60,7 @@ int main(int argc, char* argv[])
         if(fork() == 0)
         {
             prctl(PR_SET_PDEATHSIG, SIGTERM); // kill child when parent exit
-            white::HttpServer server(configs[0]);
+            white::HttpServer server(config);
             server.Run();
             return 0;
         }

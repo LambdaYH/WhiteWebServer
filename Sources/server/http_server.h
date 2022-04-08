@@ -41,8 +41,6 @@ private:
     void DealRead(int fd);
     void DealDisconnect(int fd);
 
-    void DealProxyRead();
-
     void SendError(int fd, const char *info);
     void ExtentTime(HttpConn &client);
     void CloseConn(HttpConn &client);
@@ -89,6 +87,7 @@ private:
     ProxyConfig proxy_config_;
     sockaddr_in proxy_address_;
     std::unordered_map<int, int> proxy_fd_map_;
+    std::shared_ptr<std::vector<std::string>> index_file_;
 };
 
 inline void HttpServer::SetNoBlock(int fd)

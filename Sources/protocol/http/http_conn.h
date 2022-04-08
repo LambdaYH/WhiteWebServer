@@ -41,7 +41,7 @@ public:
     HttpConn();
     ~HttpConn();
 
-    void Init(int fd, const sockaddr_in& addr, int proxt_fd = -1);
+    void Init(int fd, const sockaddr_in& addr, int proxt_fd, std::shared_ptr<std::vector<std::string>> index_file);
 
     ssize_t Read(int *err);
     ssize_t Write(int *err);
@@ -99,6 +99,8 @@ private:
 
     HttpRequest request_;
     HttpResponse response_;
+    std::shared_ptr<std::vector<std::string>> index_file_;
+
 };
 
 // response is small enough for a buffer to read
