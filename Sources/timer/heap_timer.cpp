@@ -99,7 +99,7 @@ void HeapTimer::DeleteNode(std::size_t index)
 void HeapTimer::PercolateUp(std::size_t index)
 {
     std::size_t parent_node{(index - 1) / 2};
-    while(parent_node >= 0)
+    while(parent_node > 0)
     {
         if(heap_[parent_node] < heap_[index])
             break;

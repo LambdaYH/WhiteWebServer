@@ -44,7 +44,7 @@ void HttpConn::Init(int fd, const sockaddr_in& addr, int proxt_fd, std::shared_p
 
 ssize_t HttpConn::ReadFromFd(int fd, int *err)
 {
-    ssize_t len = -1;
+    ssize_t len;
     do
     {
         len = read_buff_.ReadFromFd(fd, err);
@@ -56,7 +56,7 @@ ssize_t HttpConn::ReadFromFd(int fd, int *err)
 
 ssize_t HttpConn::WriteToFd(int fd, int *err)
 {
-    ssize_t len = -1;
+    ssize_t len;
     ssize_t total_len = 0;  
     do
     {
@@ -173,8 +173,7 @@ HttpConn::PROXY_PROCESS_STATE HttpConn::ProcessProxy()
             break;
         }
         case PROXY_PROCESS_STATE::PENDING_READ_FROM_PROXY_SERVER:
-            write_buff_.Append(read_buff_);
-            read_buff_.Clear();
+            write_buff_.Swap(read_buff_);
             iov_[0].iov_base = write_buff_.ReadBegin();
             iov_[0].iov_len = write_buff_.ReadableBytes();
             iov_cnt_ = 1;

@@ -223,7 +223,7 @@ void HttpServer::DealDisconnect(int fd)
         int new_proxy_fd;
         while((new_proxy_fd = GetNewProxyFd()) == -1)
         {
-            if(retry_count > 5)
+            if(++retry_count > 5)
             {
                 LOG_ERROR("Unable to connect to proxy server!");
                 CloseConn(users_[proxy_fd_map_[fd]]);

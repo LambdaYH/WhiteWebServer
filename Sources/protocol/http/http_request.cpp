@@ -71,13 +71,11 @@ std::pair<HttpRequest::LINE_STATUS, std::size_t> HttpRequest::ParseLine(Buffer &
         return {LINE_STATUS::LINE_OK, buff.ReadableBytes()};
     char *begin = buff.ReadBegin();
     char *end = buff.WriteBegin();
-    char temp;
     std::size_t line_len = 0;
     for (; begin != end; ++begin)
     {
         ++line_len;
-        temp = *begin;
-        if (temp == '\r')
+        if (*begin == '\r')
         {
             if(begin + 1 == end)
                 return {LINE_STATUS::LINE_OPEN, 0};
@@ -86,7 +84,7 @@ std::pair<HttpRequest::LINE_STATUS, std::size_t> HttpRequest::ParseLine(Buffer &
                 *(begin) = *(begin + 1) = '\0';
                 return {LINE_STATUS::LINE_OK, line_len + 1};
             }
-        }else if(temp == '\n') // before
+        }else if(*begin == '\n') // before
         {
             if(*(begin - 1) == '\r')
             {

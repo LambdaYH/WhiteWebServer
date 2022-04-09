@@ -28,6 +28,8 @@ public:
     std::size_t ReadableBytes() const;
     std::size_t PrependableBytes() const;
 
+    void Swap(Buffer &buff);
+
     const char *ReadBeginConst() const;
     char *ReadBegin();
 
@@ -72,8 +74,8 @@ private:
 
 private:
     std::vector<char> buffer_container_;
-    std::atomic<std::size_t> read_idx_;
-    std::atomic<std::size_t> write_idx_;
+    std::size_t read_idx_;
+    std::size_t write_idx_;
 
 };
 
@@ -90,6 +92,13 @@ inline std::size_t Buffer::WritableBytes() const
 inline std::size_t Buffer::PrependableBytes() const
 {
     return read_idx_;
+}
+
+inline void Buffer::Swap(Buffer &buff)
+{
+    buffer_container_.swap(buff.buffer_container_);
+    std::swap(read_idx_, buff.read_idx_);
+    std::swap(write_idx_, buff.write_idx_);
 }
 
 inline const char* Buffer::ReadBeginConst() const
