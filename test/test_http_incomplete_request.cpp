@@ -52,12 +52,12 @@ void ParseString(std::string &new_str, const std::string &old_str)
     new_str.clear();
     for (int i = 0, sz = old_str.size(); i < sz; ++i)
     {
-        if(old_str[i] == '\\' && (i < sz - 1 && old_str[i + 1] == 'r'))
+        if(old_str[i] == '\\' && (i != sz - 1 && old_str[i + 1] == 'r'))
         {
             new_str += '\r';
             ++i;
         }
-        else if(old_str[i] == '\\' && (i < sz - 1 && old_str[i + 1] == 'n'))
+        else if(old_str[i] == '\\' && (i != sz - 1 && old_str[i + 1] == 'n'))
         {
             new_str += '\n';
             ++i;
