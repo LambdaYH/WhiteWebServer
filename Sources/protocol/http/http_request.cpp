@@ -43,7 +43,10 @@ inline std::string ConvertPercentEncoding(const std::string &str, int begin, int
 namespace white
 {
 
-inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value);
+inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value)
+{
+    buff.Append(header_fields + ": " + value + "\r\n");
+}
 
 HttpRequest::HttpRequest()
 {

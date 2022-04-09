@@ -16,7 +16,10 @@
 
 namespace white {
 
-extern inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value);
+inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value)
+{
+    buff.Append(header_fields + ": " + value + "\r\n");
+}
 
 class HttpResponse
 {
@@ -192,11 +195,6 @@ inline const char* HttpResponse::FileAddr() const
 inline const int HttpResponse::FileSize() const
 {
     return file_stat_.st_size;
-}
-
-inline void AddCustomHeader(Buffer &buff, const std::string& header_fields, const std::string& value)
-{
-    buff.Append(header_fields + ": " + value + "\r\n");
 }
 
 } // namespace white
