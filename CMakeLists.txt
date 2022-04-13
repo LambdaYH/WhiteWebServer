@@ -8,10 +8,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 find_package(Threads REQUIRED) # pthread
 
-find_package(PkgConfig REQUIRED) # libjsoncpp
-pkg_check_modules(JSONCPP jsoncpp)
-
-link_libraries(${JSONCPP_LIBRARIES})
+add_subdirectory(third-party/jsoncpp)
 
 include_directories(Sources)
 
@@ -36,4 +33,4 @@ add_executable(${PROJECT_NAME}
                 ${CONFIG_SRC}
                 )
                 
-target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads ${JSONCPP_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads jsoncpp)

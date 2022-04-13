@@ -3,5 +3,6 @@
     "port": 8080,
     "root": "/srv/html/",
     "log path": "/home/ubuntu/WhiteWebServer/test/logs/testserver.log",
-    "timeout": 60000
+    "timeout": 60000,
+    "index": ["index.html"]
 }

@@ -13,7 +13,7 @@ Linux环境下的轻量级webserver
 
 ## Requirements
 
-    sudo apt install libjsoncpp-dev
+    cmake
 
 ## Build
 
