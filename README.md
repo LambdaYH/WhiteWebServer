@@ -1,6 +1,6 @@
 # WhiteWebServer
 
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/99c6b492dd2149e898315b03704aea03)](https://www.codacy.com/gh/LambdaYH/WhiteWebServer/dashboard?utm_source=github.com&utm_medium=referral&utm_content=LambdaYH/WhiteWebServer&utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/ca0cb125089f4dc29e02df1223c76499)](https://www.codacy.com/gh/LambdaYH/WhiteWebServer/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=LambdaYH/WhiteWebServer&amp;utm_campaign=Badge_Grade)
 
 Linux环境下的轻量级webserver
 
