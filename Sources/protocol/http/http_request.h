@@ -14,7 +14,7 @@
 #include <unordered_set>
 #include <utility>
 #include <cctype>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 
 namespace white {
 

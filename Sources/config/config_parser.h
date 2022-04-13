@@ -6,7 +6,7 @@
 #include <vector>
 #include <queue>
 #include <arpa/inet.h>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include <netdb.h>
 
 #include "config/config.h"

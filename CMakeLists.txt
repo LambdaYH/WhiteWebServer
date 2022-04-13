@@ -2,15 +2,19 @@ cmake_minimum_required(VERSION 3.1)
 project(WhiteWebServer)
 set(CMAKE_CXX_STANDARD 17)
 
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${PROJECT_SOURCE_DIR}/bin/debug)  
-# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${PROJECT_SOURCE_DIR}/bin/release)  
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(Threads REQUIRED) # pthread
 
+set(JSONCPP_WITH_TESTS OFF)
 add_subdirectory(third-party/jsoncpp)
 
-include_directories(Sources)
+include_directories(
+    Sources
+    third-party/jsoncpp/include
+)
 
 aux_source_directory(Sources/logger LOGGER_SRC)
 aux_source_directory(Sources/pool POOL_SRC)
@@ -33,4 +37,4 @@ add_executable(${PROJECT_NAME}
                 ${CONFIG_SRC}
                 )
                 
-target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads jsoncpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads jsoncpp_lib)

@@ -5,7 +5,7 @@
 #include <memory>
 #include "buffer/buffer.h"
 #include "logger/noncopyable.h"
-#include "jsoncpp/json/json.h"
+#include "json/json.h"
 
 namespace white {
 
